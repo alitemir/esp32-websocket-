@@ -1,4 +1,5 @@
 static const char PROGMEM INDEX_HTML[] = R"rawliteral(
+<!DOCTYPE html>
 <html>
   <head>
     <title>ITECH Gübre Sıyırma Robotu</title>
@@ -32,21 +33,21 @@ static const char PROGMEM INDEX_HTML[] = R"rawliteral(
       <div class="row mb-4">
         <div class="d-flex justify-content-center col-md-6">
           <div class="directional-buttons">
-            <button
+            <!-- <button
               class="direction-button up"
               onmousedown="toggleCheckbox('forward');"
               ontouchstart="toggleCheckbox('forward');"
-              onmouseup="toggleCheckbox('stop');"
-              ontouchend="toggleCheckbox('stop');"
+              onmouseup="toggleCheckbox('x');"
+              ontouchend="toggleCheckbox('x');"
             >
               <span class="visually-hidden">up</span>
-            </button>
-            <button
+            </button> -->
+            <!-- <button
               class="direction-button left"
               onmousedown="toggleCheckbox('left');"
               ontouchstart="toggleCheckbox('left');"
-              onmouseup="toggleCheckbox('stop');"
-              ontouchend="toggleCheckbox('stop');"
+              onmouseup="toggleCheckbox('x');"
+              ontouchend="toggleCheckbox('x');"
             >
               <span class="visually-hidden">left</span>
             </button>
@@ -54,20 +55,40 @@ static const char PROGMEM INDEX_HTML[] = R"rawliteral(
               class="direction-button right"
               onmousedown="toggleCheckbox('right');"
               ontouchstart="toggleCheckbox('right');"
-              onmouseup="toggleCheckbox('stop');"
-              ontouchend="toggleCheckbox('stop');"
+              onmouseup="toggleCheckbox('x');"
+              ontouchend="toggleCheckbox('x');"
             >
               <span class="visually-hidden">right</span>
-            </button>
-            <button
+            </button> -->
+            <!-- <button
               class="direction-button down"
               onmousedown="toggleCheckbox('backward');"
               ontouchstart="toggleCheckbox('backward');"
-              onmouseup="toggleCheckbox('stop');"
-              ontouchend="toggleCheckbox('stop');"
+              onmouseup="toggleCheckbox('x');"
+              ontouchend="toggleCheckbox('x');"
             >
               <span class="visually-hidden">down</span>
-            </button>
+            </button> -->
+
+            <button
+            class="direction-button left"
+            onmousedown="toggleCheckbox('forward');"
+            ontouchstart="toggleCheckbox('forward');"
+            onmouseup="toggleCheckbox('x');"
+            ontouchend="toggleCheckbox('x');"
+          >
+            <span class="visually-hidden">left</span>
+          </button>
+
+          <button
+            class="direction-button right"
+            onmousedown="toggleCheckbox('backward');"
+            ontouchstart="toggleCheckbox('backward');"
+            onmouseup="toggleCheckbox('x');"
+            ontouchend="toggleCheckbox('x');"
+          >
+            <span class="visually-hidden">right</span>
+          </button>
           </div>
         </div>
         <div class="d-flex justify-content-center col-md-6">
@@ -75,7 +96,7 @@ static const char PROGMEM INDEX_HTML[] = R"rawliteral(
             <button
               class="direction-button stop"
               onmousedown="toggleCheckbox('stop');"
-              ontouchstart="toggleCheckbox('stop');"
+              onmouseup="toggleCheckbox('x');"
             >
               <span class="text-white"> DUR </span>
               <span class="visually-hidden">stop</span>
@@ -86,18 +107,19 @@ static const char PROGMEM INDEX_HTML[] = R"rawliteral(
       <div class="card p-2">
         <div class="row">
           <div class="col">
-            <h2>Sistem Gerilimi (V)</h2>
-            <h1 id="voltage" class="dispay-1">0</h1>
+            <h2>Sistem Gerilimi</h2>
+            <h1 id="voltage" class="dispay-1">~</h1>
           </div>
           <div class="col">
-            <h2>Sistem Akimi (A)</h2>
-            <h1 id="amper" class="dispay-1">0</h1>
+            <h2>Sistem Akimi</h2>
+            <h1 id="amper" class="dispay-1">~</h1>
           </div>
         </div>
       </div>
       <div class="card">
-        <h3 id="status" class="text-primary m-2">Durum: <i>Turda</i></h3>
+        <h3 id="status" class="text-primary m-2">Durum: <i>Bekliyor</i></h3>
       </div>
+
       <div id="accordion">
         <div class="card">
           <div class="card-header">
@@ -114,72 +136,82 @@ static const char PROGMEM INDEX_HTML[] = R"rawliteral(
           <div id="collapseOne" class="collapse" data-parent="#accordion">
             <div class="card-body">
               <div class="row">
+                <div
+                  class="custom-control custom-checkbox mx-3"
+                  style="display: flex"
+                >
+                  <input
+                    type="checkbox"
+                    class="custom-control-input"
+                    id="checkbox-1"
+                  />
+                  <label class="custom-control-label" for="checkbox-1"></label>
+                </div>
                 <input
                   id="clock-1"
-                  class="col-md-3 col-sm-6"
+                  class="col-md-2 col-sm-6 mr-4"
                   style="font-size: x-large"
                   type="time"
                   name="appt-time"
                   value="00:00"
                   step="3600"
                 />
+                <div
+                  class="custom-control custom-checkbox mx-3"
+                  style="display: flex"
+                >
+                  <input
+                    type="checkbox"
+                    class="custom-control-input"
+                    id="checkbox-2"
+                  />
+                  <label class="custom-control-label" for="checkbox-2"></label>
+                </div>
                 <input
                   id="clock-2"
-                  class="col-md-3 col-sm-6"
+                  class="col-md-2 col-sm-6 mr-4"
                   style="font-size: x-large"
                   type="time"
                   name="appt-time"
                   value="00:00"
                   step="3600"
                 />
+
+                <div
+                  class="custom-control custom-checkbox mx-3"
+                  style="display: flex"
+                >
+                  <input
+                    type="checkbox"
+                    class="custom-control-input"
+                    id="checkbox-3"
+                  />
+                  <label class="custom-control-label" for="checkbox-3"></label>
+                </div>
                 <input
                   id="clock-3"
-                  class="col-md-3 col-sm-6"
+                  class="col-md-2 col-sm-6 mr-4"
                   style="font-size: x-large"
                   type="time"
                   name="appt-time"
                   value="00:00"
                   step="3600"
                 />
+
+                <div
+                  class="custom-control custom-checkbox mx-3"
+                  style="display: flex"
+                >
+                  <input
+                    type="checkbox"
+                    class="custom-control-input"
+                    id="checkbox-4"
+                  />
+                  <label class="custom-control-label" for="checkbox-4"></label>
+                </div>
                 <input
                   id="clock-4"
-                  class="col-md-3 col-sm-6"
-                  style="font-size: x-large"
-                  type="time"
-                  name="appt-time"
-                  value="00:00"
-                  step="3600"
-                />
-                <input
-                  id="clock-5"
-                  class="col-md-3 col-sm-6"
-                  style="font-size: x-large"
-                  type="time"
-                  name="appt-time"
-                  value="00:00"
-                  step="3600"
-                />
-                <input
-                  id="clock-6"
-                  class="col-md-3 col-sm-6"
-                  style="font-size: x-large"
-                  type="time"
-                  name="appt-time"
-                  value="00:00"
-                  step="3600"
-                />
-                <input
-                  id="clock-7"
-                  class="col-md-3 col-sm-6"
-                  style="font-size: x-large"
-                  type="time"
-                  name="appt-time"
-                  value="00:00"
-                  step="3600"
-                />
-                <input
-                  id="clock-8"
-                  class="col-md-3 col-sm-6"
+                  class="col-md-2 col-sm-6 mr-4"
                   style="font-size: x-large"
                   type="time"
                   name="appt-time"
@@ -187,6 +219,91 @@ static const char PROGMEM INDEX_HTML[] = R"rawliteral(
                   step="3600"
                 />
               </div>
+              <div class="row mt-3">
+                <div
+                  class="custom-control custom-checkbox mx-3"
+                  style="display: flex"
+                >
+                  <input
+                    type="checkbox"
+                    class="custom-control-input"
+                    id="checkbox-5"
+                  />
+                  <label class="custom-control-label" for="checkbox-5"></label>
+                </div>
+                <input
+                  id="clock-5"
+                  class="col-md-2 col-sm-6 mr-4"
+                  style="font-size: x-large"
+                  type="time"
+                  name="appt-time"
+                  value="00:00"
+                  step="3600"
+                />
+                <div
+                  class="custom-control custom-checkbox mx-3"
+                  style="display: flex"
+                >
+                  <input
+                    type="checkbox"
+                    class="custom-control-input"
+                    id="checkbox-6"
+                  />
+                  <label class="custom-control-label" for="checkbox-6"></label>
+                </div>
+                <input
+                  id="clock-6"
+                  class="col-md-2 col-sm-6 mr-4"
+                  style="font-size: x-large"
+                  type="time"
+                  name="appt-time"
+                  value="00:00"
+                  step="3600"
+                />
+
+                <div
+                  class="custom-control custom-checkbox mx-3"
+                  style="display: flex"
+                >
+                  <input
+                    type="checkbox"
+                    class="custom-control-input"
+                    id="checkbox-7"
+                  />
+                  <label class="custom-control-label" for="checkbox-7"></label>
+                </div>
+                <input
+                  id="clock-7"
+                  class="col-md-2 col-sm-6 mr-4"
+                  style="font-size: x-large"
+                  type="time"
+                  name="appt-time"
+                  value="00:00"
+                  step="3600"
+                />
+
+                <div
+                  class="custom-control custom-checkbox mx-3"
+                  style="display: flex"
+                >
+                  <input
+                    type="checkbox"
+                    class="custom-control-input"
+                    id="checkbox-8"
+                  />
+                  <label class="custom-control-label" for="checkbox-8"></label>
+                </div>
+                <input
+                  id="clock-8"
+                  class="col-md-2 col-sm-6 mr-4"
+                  style="font-size: x-large"
+                  type="time"
+                  name="appt-time"
+                  value="00:00"
+                  step="3600"
+                />
+              </div>
+
               <div class="m-2">
                 <button class="btn btn-success" id="time-save">
                   <svg
@@ -239,6 +356,16 @@ static const char PROGMEM INDEX_HTML[] = R"rawliteral(
 
       <script>
         window.addEventListener("load", (event) => {
+          fetch("/gettimes")
+            .then((response) => response.json())
+            .then((res) => {
+              for (let index = 0; index < 8; index++) {
+                let isEnabled = res[index][6] == "1";
+                let value = res[index].substring(0, 5);
+                $(`#clock-${index + 1}`).val(value);
+                $(`#checkbox-${index + 1}`).prop("checked", isEnabled);
+              }
+            });
           $("#turIleri").on("click", () => {
             fetch("/turIleri");
           });
@@ -249,10 +376,11 @@ static const char PROGMEM INDEX_HTML[] = R"rawliteral(
             let data = [];
             for (let index = 0; index < 8; index++) {
               const element = $(`#clock-${index + 1}`);
+              const checkBox = $(`#checkbox-${index + 1}`)[0];
               let clock = element.val().split(":");
               let hours = Number(clock[0]);
               let minutes = Number(clock[1]);
-              data.push([hours, minutes]);
+              data.push([hours, minutes, checkBox.checked ? 1 : 0]);
             }
             timeSet(JSON.stringify(data));
           });
@@ -262,7 +390,7 @@ static const char PROGMEM INDEX_HTML[] = R"rawliteral(
               .then((stats) => {
                 let { volt, amp, status } = stats;
                 let voltage = $("#voltage");
-                voltage.text(volt);
+                voltage.text(volt + "V");
                 if (Number(volt) > 22 && Number(volt) < 27) {
                   voltage.addClass("text-success");
                   voltage.removeClass("text-warning");
@@ -278,7 +406,7 @@ static const char PROGMEM INDEX_HTML[] = R"rawliteral(
                 }
 
                 let amper = $("#amper");
-                amper.text(amp);
+                amper.text(amp + "A");
                 if (Number(amp) < 10 && Number(amp) > 0) {
                   amper.addClass("text-success");
                   amper.removeClass("text-warning");
@@ -292,8 +420,27 @@ static const char PROGMEM INDEX_HTML[] = R"rawliteral(
                   amper.removeClass("text-success");
                   amper.removeClass("text-warning");
                 }
-
                 $("#status i").text(status);
+                var checkboxes = document.querySelectorAll(
+                  ".custom-control-input"
+                );
+                var clocks = document.querySelectorAll(".col-md-2.col-sm-6");
+
+                checkboxes.forEach(function (checkbox, index) {
+                  if (!checkbox.checked) {
+                    clocks[index].style.backgroundColor = "red";
+                  } else {
+                    clocks[index].style.backgroundColor = "green";
+                  }
+
+                  checkbox.addEventListener("change", function () {
+                    if (checkbox.checked) {
+                      clocks[index].style.backgroundColor = "green";
+                    } else {
+                      clocks[index].style.backgroundColor = "red";
+                    }
+                  });
+                });
               });
           }, 1000);
         });
@@ -312,6 +459,27 @@ static const char PROGMEM INDEX_HTML[] = R"rawliteral(
         }
       </script>
       <style>
+        .custom-control-input:checked ~ .custom-control-label::before {
+          background-color: green;
+        }
+        .custom-control-input:checked ~ .custom-control-label::after {
+          background-color: green;
+        }
+        .custom-control-input:not(:checked) ~ .custom-control-label::before {
+          background-color: red;
+        }
+        .custom-control-input {
+          width: 30px;
+          height: 30px;
+        }
+        .custom-control-label::before {
+          width: 30px;
+          height: 30px;
+        }
+        .custom-control-label::after {
+          width: 30px;
+          height: 30px;
+        }
         .directional-buttons {
           width: 16rem;
           height: 16rem;
@@ -358,14 +526,15 @@ static const char PROGMEM INDEX_HTML[] = R"rawliteral(
           position: absolute;
           border: 2rem solid transparent;
           color: rgba(255, 250, 250, 0.6);
+
         }
 
         .direction-button:hover {
-          color: rgb(85, 55, 55);
+          color: rgb(221, 36, 36);
         }
 
         .direction-button:active:after {
-          color: rgb(255, 152, 152);
+          color: rgb(15, 11, 236);
         }
 
         .up {
