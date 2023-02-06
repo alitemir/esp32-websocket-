@@ -19,6 +19,10 @@ static const char PROGMEM INDEX_HTML[] = R"rawliteral(
       integrity="sha384-ChfqqxuZUCnJSK3+MXmPNIyE6ZbWh2IMqE241rYiqJxyMiZ6OW/JmZQ5stwEULTy"
       crossorigin="anonymous"
     ></script>
+
+    <link href="https://cdn.jsdelivr.net/gh/gitbrent/bootstrap4-toggle@3.6.1/css/bootstrap4-toggle.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/gh/gitbrent/bootstrap4-toggle@3.6.1/js/bootstrap4-toggle.min.js"></script>
+
     <meta
       charset="UTF-8"
       name="viewport"
@@ -29,10 +33,10 @@ static const char PROGMEM INDEX_HTML[] = R"rawliteral(
   <body class="">
     <div class="container text-center">
       <h2 class="my-3">ITECH Gübre Sıyırma Robotu</h2>
-
       <div class="row mb-4">
-        <div class="d-flex justify-content-center col-md-6">
+        <div class="d-flex justify-content-center col-md-4">
           <div class="directional-buttons">
+
             <!-- <button
               class="direction-button up"
               onmousedown="toggleCheckbox('forward');"
@@ -91,17 +95,26 @@ static const char PROGMEM INDEX_HTML[] = R"rawliteral(
           </button>
           </div>
         </div>
-        <div class="d-flex justify-content-center col-md-6">
+       <div class="col-md-4" style="margin-top: 100px;">
+        
+        <div>
+          <span class="d-block mb-3 font-weight-bold" >Manuel Mod</span>
+          <input id="toggle-silent" type="checkbox" data-toggle="toggle" onchange="sendMode();">
+          <div id="console-event"></div>
+        </div>
+
+       </div>
+        <div class="d-flex justify-content-center col-md-4">
           <div class="directional-buttons">
             <button
-              class="direction-button stop"
-              onmousedown="toggleCheckbox('stop');"
-              onmouseup="toggleCheckbox('x');"
+            class="direction-button stop"
+            onmousedown="toggleCheckbox('stop');"
+            onmouseup="toggleCheckbox('x');"
             >
-              <span class="text-white"> DUR </span>
-              <span class="visually-hidden">stop</span>
-            </button>
-          </div>
+            <span class="text-white"> DUR </span>
+            <span class="visually-hidden">stop</span>
+          </button>
+        </div>
         </div>
       </div>
       <div class="card p-2">
@@ -356,7 +369,8 @@ static const char PROGMEM INDEX_HTML[] = R"rawliteral(
 
       <script>
         window.addEventListener("load", (event) => {
-          fetch("/gettimes")
+          
+             fetch("/gettimes")
             .then((response) => response.json())
             .then((res) => {
               for (let index = 0; index < 8; index++) {
@@ -442,10 +456,19 @@ static const char PROGMEM INDEX_HTML[] = R"rawliteral(
                   });
                 });
               });
-          }, 1000);
+          }, 2000);
         });
       </script>
       <script>
+
+function sendMode() {
+          mode= document.getElementById('toggle-silent').checked; 
+          var xhr = new XMLHttpRequest();
+          xhr.open("POST", "/manualmode?manual=" + mode, true);
+          xhr.send();
+        }
+
+  
         function toggleCheckbox(x) {
           var xhr = new XMLHttpRequest();
           xhr.open("GET", "/action?go=" + x, true);
@@ -454,7 +477,7 @@ static const char PROGMEM INDEX_HTML[] = R"rawliteral(
 
         function timeSet(x) {
           var xhr = new XMLHttpRequest();
-          xhr.open("GET", "/action?time=" + x, true);
+          xhr.open("POST", "/save?alarms=" + x, true);
           xhr.send();
         }
       </script>
