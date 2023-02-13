@@ -27,6 +27,7 @@ const char *ap_pwd = "12345678";
 
 const char *hotspot_ssid = "mustafa";
 const char *mdns_host = "gubresiyirma";
+const char *base_path = "/data";
 
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
@@ -71,7 +72,7 @@ const char *mdns_host = "gubresiyirma";
 #define DURUM 0x100C
 
 #define FILE_PATH_MAX (ESP_VFS_PATH_MAX + CONFIG_SPIFFS_OBJ_NAME_LEN)
-#define SCRATCH_BUFSIZE 8192
+#define SCRATCH_BUFSIZE 4096
 #define IS_FILE_EXT(filename, ext) \
   (strcasecmp(&filename[strlen(filename) - sizeof(ext) + 1], ext) == 0)
 
@@ -202,8 +203,11 @@ static esp_err_t download_get_handler(httpd_req_t *req)
 
   const char *filename = get_path_from_uri(filepath, ((struct file_server_data *)req->user_ctx)->base_path,
                                            req->uri, sizeof(filepath));
-Serial.println(filepath);
-Serial.println(filename);
+  if (strcmp(filename, "/") == 0)
+  {
+    filename = "/data/index.html";
+    strncpy(filepath, "/data/index.html", 17);
+  }
 
   if (!filename)
   {
@@ -232,15 +236,20 @@ Serial.println(filename);
   //     return ESP_FAIL;
   // }
 
-  if (strcmp(&filepath[strlen(filepath) - 4], ".map") == 0)
+  if (strcmp(&filepath[strlen(filepath) - 4], ".map") == 0 || strcmp(&filepath[strlen(filepath) - 7], ".map.js") == 0)
   {
-    Serial.println("Skip map file");
+    // Serial.println("Skip map file");
     return ESP_FAIL;
   }
   else
   {
+    String fl = String(filepath) + String(".gz");
+    Serial.println(filepath);
+    Serial.println(filename);
+    Serial.println(fl);
 
-    fd = fopen(filepath, "r");
+    fd = fopen(fl.c_str(), "r");
+
     if (!fd)
     {
       ESP_LOGE(TAG, "Failed to read existing file : %s", filepath);
@@ -263,7 +272,8 @@ Serial.println(filename);
 
     if (chunksize > 0)
     {
-      httpd_resp_set_hdr(req,"Cache-Control", "max-age=3600");
+      httpd_resp_set_hdr(req, "Cache-Control", "max-age=3600");
+      httpd_resp_set_hdr(req, "Content-Encoding", "gzip");
       /* Send the buffer contents as HTTP response chunk */
       if (httpd_resp_send_chunk(req, chunk, chunksize) != ESP_OK)
       {
@@ -298,17 +308,17 @@ static esp_err_t index_handler(httpd_req_t *req)
   return httpd_resp_send(req, (const char *)INDEX_HTML, strlen(INDEX_HTML));
 }
 
-static esp_err_t js_handler(httpd_req_t *req)
-{
-  httpd_resp_set_type(req, "application/javascript");
-  return httpd_resp_send(req, (const char *)JS, strlen(JS));
-}
+// static esp_err_t js_handler(httpd_req_t *req)
+// {
+//   httpd_resp_set_type(req, "application/javascript");
+//   return httpd_resp_send(req, (const char *)JS, strlen(JS));
+// }
 
-static esp_err_t css_handler(httpd_req_t *req)
-{
-  httpd_resp_set_type(req, "text/css");
-  return httpd_resp_send(req, (const char *)CSS, strlen(CSS));
-}
+// static esp_err_t css_handler(httpd_req_t *req)
+// {
+//   httpd_resp_set_type(req, "text/css");
+//   return httpd_resp_send(req, (const char *)CSS, strlen(CSS));
+// }
 
 static esp_err_t tur_ileri_handler(httpd_req_t *req)
 {
@@ -334,7 +344,7 @@ static esp_err_t tur_geri_handler(httpd_req_t *req)
 // {"volt":17,"amp":4,"status":"Şarjda"}
 static esp_err_t status_handler(httpd_req_t *req)
 {
-  
+
   StaticJsonDocument<50> jsonresponse;
   jsonresponse["amp"] = (float)node.getResponseBuffer(node.readHoldingRegisters(CURRENT, 1)) / 10.0;
   jsonresponse["volt"] = (float)node.getResponseBuffer(node.readHoldingRegisters(VOLTAGE, 1)) / 10.0;
@@ -365,7 +375,7 @@ static esp_err_t status_handler(httpd_req_t *req)
   {
     jsonresponse["status"] = "Yön Switch Basılı.";
   }
-  
+
   else
   {
     jsonresponse["status"] = "HATA";
@@ -660,20 +670,20 @@ esp_err_t startServer(const char *base_path)
   httpd_uri_t index_uri = {
       .uri = "/",
       .method = HTTP_GET,
-      .handler = index_handler,
-      .user_ctx = NULL};
+      .handler = download_get_handler,
+      .user_ctx = server_data};
 
-  httpd_uri_t js_uri = {
-      .uri = "/index.js",
-      .method = HTTP_GET,
-      .handler = js_handler,
-      .user_ctx = NULL};
+  // httpd_uri_t js_uri = {
+  //     .uri = "/index.js",
+  //     .method = HTTP_GET,
+  //     .handler = js_handler,
+  //     .user_ctx = NULL};
 
-  httpd_uri_t css_uri = {
-      .uri = "/style.css",
-      .method = HTTP_GET,
-      .handler = css_handler,
-      .user_ctx = NULL};
+  // httpd_uri_t css_uri = {
+  //     .uri = "/style.css",
+  //     .method = HTTP_GET,
+  //     .handler = css_handler,
+  //     .user_ctx = NULL};
 
   httpd_uri_t cmd_uri = {
       .uri = "/action",
@@ -730,8 +740,6 @@ esp_err_t startServer(const char *base_path)
     httpd_register_uri_handler(gubre_siyirma, &file_serve);
     httpd_register_uri_handler(gubre_siyirma, &index_uri);
     httpd_register_uri_handler(gubre_siyirma, &save_uri);
-    // httpd_register_uri_handler(gubre_siyirma, &js_uri);
-    // httpd_register_uri_handler(gubre_siyirma, &css_uri);
     httpd_register_uri_handler(gubre_siyirma, &cmd_uri);
     httpd_register_uri_handler(gubre_siyirma, &status_uri);
     httpd_register_uri_handler(gubre_siyirma, &ileri_uri);
@@ -753,6 +761,12 @@ void WiFiGotIP(WiFiEvent_t event, WiFiEventInfo_t info)
   Serial.println("WiFi connected");
   Serial.println("IP address: ");
   Serial.println(WiFi.localIP());
+}
+
+void Wifi_AP_Disconnected(WiFiEvent_t event, WiFiEventInfo_t info)
+{
+  Serial.println("Disconnected from AP");
+  esp_restart();
 }
 
 void WiFiStationDisconnected(WiFiEvent_t event, WiFiEventInfo_t info)
@@ -788,6 +802,7 @@ void setup()
   WiFi.onEvent(WiFiStationConnected, WiFiEvent_t::SYSTEM_EVENT_STA_DISCONNECTED);
   WiFi.onEvent(WiFiGotIP, WiFiEvent_t::SYSTEM_EVENT_GOT_IP6);
   WiFi.onEvent(WiFiStationDisconnected, WiFiEvent_t::SYSTEM_EVENT_STA_DISCONNECTED);
+  WiFi.onEvent(Wifi_AP_Disconnected,WiFiEvent_t::SYSTEM_EVENT_AP_STADISCONNECTED);
 #else
   WiFi.onEvent(WiFiStationConnected, WiFiEvent_t::ARDUINO_EVENT_WIFI_STA_DISCONNECTED);
   WiFi.onEvent(WiFiGotIP, WiFiEvent_t::ARDUINO_EVENT_WIFI_STA_GOT_IP);
@@ -839,14 +854,9 @@ void setup()
   readAlarms();
   readAlarmStatus();
 
-  const char *base_path = "/data";
-  Serial.println("1");
   example_mount_storage(base_path);
-  Serial.println("2");
   nvs_flash_init();
-  Serial.println("3");
   startServer("");
-  Serial.println("4");
 }
 
 void loop()
