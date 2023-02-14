@@ -5,17 +5,12 @@
 #include <esp_wifi.h>
 #include <soc/rtc_cntl_reg.h>
 #include <esp_http_server.h>
-#include "html.h"
-#include "js.h"
-#include "css.h"
-#include <SoftwareSerial.h>
 #include "esp_vfs.h"
 #include "esp_spiffs.h"
 #include "nvs_flash.h"
 #include "esp_log.h"
 #include "esp_err.h"
-
-static const char *TAG = "example";
+// #include <SoftwareSerial.h>
 
 // STA Modu ayarları
 const char *ssid = "VR_Ozel_Ag";
@@ -29,14 +24,7 @@ const char *hotspot_ssid = "mustafa";
 const char *mdns_host = "gubresiyirma";
 const char *base_path = "/data";
 
-#define MAX(a, b) ((a) > (b) ? (a) : (b))
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
-
-// TODO:
-// soguk modu kış için, sıcaklık sensörü ile entegre çalışacak, sadece checkbox ekle ,sıcaklık aralığı eklenecek
-// [OK] ayrı ip adresi -- bu konu üzerinde çalışılacak
-// [OK] manual mod butonu
-// [OK] dil değiştirme için bayrak eklenecek
 
 // Kullanilan pinler
 #define LED_PIN 2
@@ -78,16 +66,13 @@ const char *base_path = "/data";
 
 struct file_server_data
 {
-  /* Base path of file storage */
   char base_path[ESP_VFS_PATH_MAX + 1];
-
-  /* Scratch buffer for temporary storage during file transfer */
   char scratch[SCRATCH_BUFSIZE];
 };
 
 httpd_handle_t gubre_siyirma = NULL;
 ModbusMaster node;
-SoftwareSerial ss(SERIAL1_RX, SERIAL1_TX);
+// SoftwareSerial ss(SERIAL1_RX, SERIAL1_TX);spo
 char jsonbuffer[100];
 uint8_t mac[6];
 char softap_mac[18] = {0};
@@ -99,7 +84,7 @@ esp_err_t example_mount_storage(const char *base_path)
   esp_vfs_spiffs_conf_t conf = {
       .base_path = base_path,
       .partition_label = NULL,
-      .max_files = 10, // This sets the maximum number of files that can be open at the same time
+      .max_files = 10,
       .format_if_mount_failed = true};
 
   esp_err_t ret = esp_vfs_spiffs_register(&conf);
@@ -149,15 +134,11 @@ static const char *get_path_from_uri(char *dest, const char *base_path, const ch
 
   if (base_pathlen + pathlen + 1 > destsize)
   {
-    /* Full path string won't fit into destination buffer */
     return NULL;
   }
 
-  /* Construct full path (base + path) */
   strcpy(dest, base_path);
   strlcpy(dest + base_pathlen, uri, pathlen + 1);
-
-  /* Return pointer to path, skipping the base */
   return dest + base_pathlen;
 }
 
@@ -190,12 +171,10 @@ static esp_err_t set_content_type_from_file(httpd_req_t *req, const char *filena
     return httpd_resp_set_type(req, "text/css");
   }
 
-  /* This is a limited set only */
-  /* For any other type always set as plain text */
   return httpd_resp_set_type(req, "text/plain");
 }
 
-static esp_err_t download_get_handler(httpd_req_t *req)
+static esp_err_t download_handler(httpd_req_t *req)
 {
   char filepath[FILE_PATH_MAX];
   FILE *fd = NULL;
@@ -216,26 +195,6 @@ static esp_err_t download_get_handler(httpd_req_t *req)
     httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Filename too long");
     return ESP_FAIL;
   }
-
-  // /* If name has trailing '/', respond with directory contents */
-  // if (filename[strlen(filename) - 1] == '/') {
-  //     return http_resp_dir_html(req, filepath);
-  // }
-
-  // if (stat(filepath, &file_stat) == -1) {
-  //     /* If file not present on SPIFFS check if URI
-  //      * corresponds to one of the hardcoded paths */
-  //     if (strcmp(filename, "/index.html") == 0) {
-  //         return index_html_get_handler(req);
-  //     } else if (strcmp(filename, "/favicon.ico") == 0) {
-  //         return favicon_get_handler(req);
-  //     }
-  //     ESP_LOGE(TAG, "Failed to stat file : %s", filepath);
-  //     /* Respond with 404 Not Found */
-  //     httpd_resp_send_err(req, HTTPD_404_NOT_FOUND, "File does not exist");
-  //     return ESP_FAIL;
-  // }
-
   if (strcmp(&filepath[strlen(filepath) - 4], ".map") == 0 || strcmp(&filepath[strlen(filepath) - 7], ".map.js") == 0)
   {
     // Serial.println("Skip map file");
@@ -262,63 +221,37 @@ static esp_err_t download_get_handler(httpd_req_t *req)
   ESP_LOGI(TAG, "Sending file : %s (%ld bytes)...", filename, file_stat.st_size);
   set_content_type_from_file(req, filename);
 
-  /* Retrieve the pointer to scratch buffer for temporary storage */
   char *chunk = ((struct file_server_data *)req->user_ctx)->scratch;
   size_t chunksize;
   do
   {
-    /* Read file in chunks into the scratch buffer */
     chunksize = fread(chunk, 1, SCRATCH_BUFSIZE, fd);
 
     if (chunksize > 0)
     {
       httpd_resp_set_hdr(req, "Cache-Control", "max-age=3600");
       httpd_resp_set_hdr(req, "Content-Encoding", "gzip");
-      /* Send the buffer contents as HTTP response chunk */
       if (httpd_resp_send_chunk(req, chunk, chunksize) != ESP_OK)
       {
         fclose(fd);
         ESP_LOGE(TAG, "File sending failed!");
-        /* Abort sending file */
         httpd_resp_sendstr_chunk(req, NULL);
-        /* Respond with 500 Internal Server Error */
         httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Failed to send file");
         return ESP_FAIL;
       }
     }
 
-    /* Keep looping till the whole file is sent */
   } while (chunksize != 0);
 
-  /* Close file after sending complete */
   fclose(fd);
   ESP_LOGI(TAG, "File sending complete");
 
-/* Respond with an empty chunk to signal HTTP response completion */
 #ifdef CONFIG_EXAMPLE_HTTPD_CONN_CLOSE_HEADER
   httpd_resp_set_hdr(req, "Connection", "close");
 #endif
   httpd_resp_send_chunk(req, NULL, 0);
   return ESP_OK;
 }
-
-static esp_err_t index_handler(httpd_req_t *req)
-{
-  httpd_resp_set_type(req, "text/html");
-  return httpd_resp_send(req, (const char *)INDEX_HTML, strlen(INDEX_HTML));
-}
-
-// static esp_err_t js_handler(httpd_req_t *req)
-// {
-//   httpd_resp_set_type(req, "application/javascript");
-//   return httpd_resp_send(req, (const char *)JS, strlen(JS));
-// }
-
-// static esp_err_t css_handler(httpd_req_t *req)
-// {
-//   httpd_resp_set_type(req, "text/css");
-//   return httpd_resp_send(req, (const char *)CSS, strlen(CSS));
-// }
 
 static esp_err_t tur_ileri_handler(httpd_req_t *req)
 {
@@ -341,7 +274,6 @@ static esp_err_t tur_geri_handler(httpd_req_t *req)
   return httpd_resp_send(req, "geri", 4);
 }
 
-// {"volt":17,"amp":4,"status":"Şarjda"}
 static esp_err_t status_handler(httpd_req_t *req)
 {
 
@@ -396,8 +328,6 @@ static esp_err_t save_handler(httpd_req_t *req)
   if (buf_len > 1)
   {
     if (httpd_req_get_url_query_str(req, buffer, buf_len) == ESP_OK)
-    // Serial.print("buf_len:");
-    // Serial.println(buf_len);
     {
       if (httpd_query_key_value(buffer, "alarms", buffer, sizeof(buffer)) == ESP_OK)
       {
@@ -460,9 +390,7 @@ static esp_err_t manual_mode_handler(httpd_req_t *req)
         }
         else
         {
-          Serial.print("buffer contains:");
-          Serial.println(buffer);
-          // Serial.println("buffer not valid");
+          Serial.printf("buffer contains:%s",buffer);
         }
       }
     }
@@ -549,8 +477,7 @@ static esp_err_t cmd_handler(httpd_req_t *req)
   };
   size_t buf_len;
   buf_len = httpd_req_get_url_query_len(req) + 1;
-  // Serial.print("buf_len:");
-  // Serial.println(buf_len);
+  Serial.printf("buf_len:%d\n",buf_len);
   if (buf_len > 1)
   {
     if (httpd_req_get_url_query_str(req, buffer, buf_len) == ESP_OK)
@@ -641,6 +568,15 @@ static esp_err_t cmd_handler(httpd_req_t *req)
   return httpd_resp_send(req, NULL, 0);
 }
 
+// esp_err_t error_handler(httpd_req_t *req, httpd_err_code_t err)
+// {
+//     httpd_resp_set_status(req, "302 Temporary Redirect");
+//     httpd_resp_set_hdr(req, "Location", "/");
+//     httpd_resp_send(req, "Redirect to the captive portal", HTTPD_RESP_USE_STRLEN);
+//     // ESP_LOGI(TAG, "Redirecting to root");
+//     return ESP_OK;
+// }
+
 esp_err_t startServer(const char *base_path)
 {
   httpd_config_t config = HTTPD_DEFAULT_CONFIG();
@@ -652,7 +588,6 @@ esp_err_t startServer(const char *base_path)
     Serial.println("File server already started");
     return ESP_ERR_INVALID_STATE;
   }
-  /* Allocate memory for server data */
   server_data = (file_server_data *)calloc(1, sizeof(struct file_server_data));
   if (!server_data)
   {
@@ -670,20 +605,8 @@ esp_err_t startServer(const char *base_path)
   httpd_uri_t index_uri = {
       .uri = "/",
       .method = HTTP_GET,
-      .handler = download_get_handler,
+      .handler = download_handler,
       .user_ctx = server_data};
-
-  // httpd_uri_t js_uri = {
-  //     .uri = "/index.js",
-  //     .method = HTTP_GET,
-  //     .handler = js_handler,
-  //     .user_ctx = NULL};
-
-  // httpd_uri_t css_uri = {
-  //     .uri = "/style.css",
-  //     .method = HTTP_GET,
-  //     .handler = css_handler,
-  //     .user_ctx = NULL};
 
   httpd_uri_t cmd_uri = {
       .uri = "/action",
@@ -728,10 +651,10 @@ esp_err_t startServer(const char *base_path)
       .user_ctx = NULL};
 
   httpd_uri_t file_serve = {
-      .uri = "/data/*", // Match all URIs of type /upload/path/to/file
+      .uri = "/data/*",
       .method = HTTP_GET,
-      .handler = download_get_handler,
-      .user_ctx = server_data // Pass server data as context
+      .handler = download_handler,
+      .user_ctx = server_data
   };
 
   if (httpd_start(&gubre_siyirma, &config) == ESP_OK)
@@ -746,6 +669,7 @@ esp_err_t startServer(const char *base_path)
     httpd_register_uri_handler(gubre_siyirma, &geri_uri);
     httpd_register_uri_handler(gubre_siyirma, &get_times_uri);
     httpd_register_uri_handler(gubre_siyirma, &manual_mod_uri);
+    // httpd_register_err_handler(gubre_siyirma, HTTPD_404_NOT_FOUND, error_handler);
   }
   return ESP_OK;
 }
