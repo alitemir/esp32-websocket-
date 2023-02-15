@@ -10,17 +10,18 @@
 #include "nvs_flash.h"
 #include "esp_log.h"
 #include "esp_err.h"
+
 // #include <SoftwareSerial.h>
 
 // STA Modu ayarları
-const char *ssid = "VR_Ozel_Ag";
-const char *password = "12345678";
+// const char *ssid = "VR_Ozel_Ag";
+// const char *password = "12345678";
 
 // AP Modu ayarları
 // const char *ap_ssid = "GubreSiyirma";
 const char *ap_pwd = "12345678";
 
-const char *hotspot_ssid = "mustafa";
+const char *hotspot_ssid = "mustafa_ali_can";
 const char *mdns_host = "gubresiyirma";
 const char *base_path = "/data";
 
@@ -72,7 +73,7 @@ struct file_server_data
 
 httpd_handle_t gubre_siyirma = NULL;
 ModbusMaster node;
-// SoftwareSerial ss(SERIAL1_RX, SERIAL1_TX);spo
+// SoftwareSerial ss(SERIAL1_RX, SERIAL1_TX);
 char jsonbuffer[100];
 uint8_t mac[6];
 char softap_mac[18] = {0};
@@ -203,16 +204,16 @@ static esp_err_t download_handler(httpd_req_t *req)
   else
   {
     String fl = String(filepath) + String(".gz");
-    Serial.println(filepath);
-    Serial.println(filename);
-    Serial.println(fl);
+
+    // Serial.println(filepath);
+    // Serial.println(filename);
+    // Serial.println(fl);
 
     fd = fopen(fl.c_str(), "r");
 
     if (!fd)
     {
       ESP_LOGE(TAG, "Failed to read existing file : %s", filepath);
-      /* Respond with 500 Internal Server Error */
       httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Failed to read existing file");
       return ESP_FAIL;
     }
@@ -276,43 +277,28 @@ static esp_err_t tur_geri_handler(httpd_req_t *req)
 
 static esp_err_t status_handler(httpd_req_t *req)
 {
-
   StaticJsonDocument<50> jsonresponse;
   jsonresponse["amp"] = (float)node.getResponseBuffer(node.readHoldingRegisters(CURRENT, 1)) / 10.0;
   jsonresponse["volt"] = (float)node.getResponseBuffer(node.readHoldingRegisters(VOLTAGE, 1)) / 10.0;
-  // 0-> ŞARJ  1-> BEKLEMEDE
   int d = node.getResponseBuffer(node.readHoldingRegisters(DURUM, 1));
-  if (d == 0)
+
+  switch (d)
   {
+  case 0:
     jsonresponse["status"] = "Geri Turda";
-  }
-  else if (d == 1)
-  {
+  case 1:
     jsonresponse["status"] = "İleri Turda";
-  }
-  else if (d == 2)
-  {
+  case 2:
     jsonresponse["status"] = "Şarjda";
-  }
-  else if (d == 3)
-  {
+  case 3:
     jsonresponse["status"] = "Robot Takıldı.";
-  }
-  else if (d == 4)
-  {
+  case 4:
     jsonresponse["status"] = "Acil Stop Basılı.";
-  }
-
-  else if (d == 5)
-  {
+  case 5:
     jsonresponse["status"] = "Yön Switch Basılı.";
-  }
-
-  else
-  {
+  default:
     jsonresponse["status"] = "HATA";
   }
-
   serializeJson(jsonresponse, jsonbuffer);
   return httpd_resp_send(req, jsonbuffer, measureJson(jsonresponse));
 }
@@ -390,7 +376,7 @@ static esp_err_t manual_mode_handler(httpd_req_t *req)
         }
         else
         {
-          Serial.printf("buffer contains:%s",buffer);
+          Serial.printf("buffer contains:%s", buffer);
         }
       }
     }
@@ -449,7 +435,7 @@ static void readAlarms()
   {
     Serial.println("Alarm read error");
   }
-  Serial.println();
+  // Serial.println();
 }
 
 static void readAlarmStatus()
@@ -467,7 +453,7 @@ static void readAlarmStatus()
   {
     Serial.println("Alarm status read error");
   }
-  Serial.println("");
+  // Serial.println("");
 }
 
 static esp_err_t cmd_handler(httpd_req_t *req)
@@ -477,7 +463,7 @@ static esp_err_t cmd_handler(httpd_req_t *req)
   };
   size_t buf_len;
   buf_len = httpd_req_get_url_query_len(req) + 1;
-  Serial.printf("buf_len:%d\n",buf_len);
+  // Serial.printf("buf_len:%d\n", buf_len);
   if (buf_len > 1)
   {
     if (httpd_req_get_url_query_str(req, buffer, buf_len) == ESP_OK)
@@ -510,31 +496,31 @@ static esp_err_t cmd_handler(httpd_req_t *req)
 
   if (!strcmp(buffer, "forward"))
   {
-    Serial.println("Forward");
+    // Serial.println("Forward");
     node.writeSingleCoil(FORWARD_ADDRESS, HIGH);
     digitalWrite(LED_PIN, 1);
   }
   else if (!strcmp(buffer, "left"))
   {
-    Serial.println("Left");
+    // Serial.println("Left");
     node.writeSingleCoil(LEFT_ADDRESS, HIGH);
     digitalWrite(LED_PIN, 1);
   }
   else if (!strcmp(buffer, "right"))
   {
-    Serial.println("Right");
+    // Serial.println("Right");
     node.writeSingleCoil(RIGHT_ADDRESS, HIGH);
     digitalWrite(LED_PIN, 1);
   }
   else if (!strcmp(buffer, "backward"))
   {
-    Serial.println("Backward");
+    // Serial.println("Backward");
     node.writeSingleCoil(BACKWARD_ADDRESS, HIGH);
     digitalWrite(LED_PIN, 1);
   }
   else if (!strcmp(buffer, "stop"))
   {
-    Serial.println("Stop");
+    // Serial.println("Stop");
     node.writeSingleCoil(STOP_ADDRESS, HIGH);
     digitalWrite(LED_PIN, 1);
   }
@@ -551,7 +537,7 @@ static esp_err_t cmd_handler(httpd_req_t *req)
     node.writeSingleCoil(LEFT_ADDRESS, LOW);
     node.writeSingleCoil(STOP_ADDRESS, LOW);
     digitalWrite(LED_PIN, 0);
-    Serial.println("x");
+    // Serial.println("x");
   }
   else
   {
@@ -654,8 +640,7 @@ esp_err_t startServer(const char *base_path)
       .uri = "/data/*",
       .method = HTTP_GET,
       .handler = download_handler,
-      .user_ctx = server_data
-  };
+      .user_ctx = server_data};
 
   if (httpd_start(&gubre_siyirma, &config) == ESP_OK)
   {
@@ -680,12 +665,12 @@ void WiFiStationConnected(WiFiEvent_t event, WiFiEventInfo_t info)
   Serial.println("Connected to AP successfully!");
 }
 
-void WiFiGotIP(WiFiEvent_t event, WiFiEventInfo_t info)
-{
-  Serial.println("WiFi connected");
-  Serial.println("IP address: ");
-  Serial.println(WiFi.localIP());
-}
+// void WiFiGotIP(WiFiEvent_t event, WiFiEventInfo_t info)
+// {
+//   Serial.println("WiFi connected");
+//   Serial.println("IP address: ");
+//   Serial.println(WiFi.localIP());
+// }
 
 void Wifi_AP_Disconnected(WiFiEvent_t event, WiFiEventInfo_t info)
 {
@@ -693,18 +678,18 @@ void Wifi_AP_Disconnected(WiFiEvent_t event, WiFiEventInfo_t info)
   esp_restart();
 }
 
-void WiFiStationDisconnected(WiFiEvent_t event, WiFiEventInfo_t info)
-{
-  Serial.println("Disconnected from WiFi access point");
-  Serial.print("WiFi lost connection. Reason: ");
-#ifdef ESP32
-  Serial.println(info.disconnected.reason);
-#else
-  Serial.println(info.wifi_sta_disconnected.reason);
-#endif
-  Serial.println("Trying to Reconnect");
-  WiFi.begin(ssid, password);
-}
+// void WiFiStationDisconnected(WiFiEvent_t event, WiFiEventInfo_t info)
+// {
+//   Serial.println("Disconnected from WiFi access point");
+//   Serial.print("WiFi lost connection. Reason: ");
+// #ifdef ESP32
+//   Serial.println(info.disconnected.reason);
+// #else
+//   Serial.println(info.wifi_sta_disconnected.reason);
+// #endif
+//   Serial.println("Trying to Reconnect");
+//   WiFi.begin(ssid, password);
+// }
 
 void preTransmission()
 {
@@ -722,16 +707,16 @@ void setup()
 {
   WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0);
 
-#ifdef ESP32
-  WiFi.onEvent(WiFiStationConnected, WiFiEvent_t::SYSTEM_EVENT_STA_DISCONNECTED);
-  WiFi.onEvent(WiFiGotIP, WiFiEvent_t::SYSTEM_EVENT_GOT_IP6);
-  WiFi.onEvent(WiFiStationDisconnected, WiFiEvent_t::SYSTEM_EVENT_STA_DISCONNECTED);
-  WiFi.onEvent(Wifi_AP_Disconnected,WiFiEvent_t::SYSTEM_EVENT_AP_STADISCONNECTED);
-#else
-  WiFi.onEvent(WiFiStationConnected, WiFiEvent_t::ARDUINO_EVENT_WIFI_STA_DISCONNECTED);
-  WiFi.onEvent(WiFiGotIP, WiFiEvent_t::ARDUINO_EVENT_WIFI_STA_GOT_IP);
-  WiFi.onEvent(WiFiStationDisconnected, WiFiEvent_t::ARDUINO_EVENT_WIFI_AP_STADISCONNECTED);
-#endif
+  // #ifdef ESP32
+  // WiFi.onEvent(WiFiStationConnected, WiFiEvent_t::SYSTEM_EVENT_STA_DISCONNECTED);
+  // WiFi.onEvent(WiFiGotIP, WiFiEvent_t::SYSTEM_EVENT_GOT_IP6);
+  // WiFi.onEvent(WiFiStationDisconnected, WiFiEvent_t::SYSTEM_EVENT_STA_DISCONNECTED);
+  WiFi.onEvent(Wifi_AP_Disconnected, WiFiEvent_t::SYSTEM_EVENT_AP_STADISCONNECTED);
+  // #else
+  //   WiFi.onEvent(WiFiStationConnected, WiFiEvent_t::ARDUINO_EVENT_WIFI_STA_DISCONNECTED);
+  //   WiFi.onEvent(WiFiGotIP, WiFiEvent_t::ARDUINO_EVENT_WIFI_STA_GOT_IP);
+  //   WiFi.onEvent(WiFiStationDisconnected, WiFiEvent_t::ARDUINO_EVENT_WIFI_AP_STADISCONNECTED);
+  // #endif
 
   pinMode(MAX485_RE_NEG, OUTPUT);
   pinMode(MAX485_DE, OUTPUT);
@@ -753,21 +738,21 @@ void setup()
   sprintf(softap_mac, "%s_%02X%02X", mdns_host, mac[4], mac[5]);
   WiFi.softAP(softap_mac, ap_pwd);
 
-  WiFi.begin(ssid, password);
+  // WiFi.begin(ssid, password);
 
   WiFi.setHostname(mdns_host);
-  Serial.print("Wifi access point created: ");
+  Serial.print("Wifi access point created: http://");
   Serial.println(WiFi.softAPIP());
-
-  while (WiFi.status() != WL_CONNECTED)
-  {
-    delay(100);
-    Serial.print(".");
-  }
-  Serial.println("");
-  Serial.println("WiFi connected");
   Serial.print("Remote Ready! Go to: http://");
   Serial.println(WiFi.softAPIP());
+
+  // while (WiFi.status() != WL_CONNECTED)
+  // {
+  //   delay(100);
+  //   Serial.print(".");
+  // }
+  // Serial.println("");
+  // Serial.println("WiFi connected");
 
   mdns_init();
   mdns_hostname_set(softap_mac);
