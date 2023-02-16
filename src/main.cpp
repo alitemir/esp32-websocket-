@@ -286,19 +286,31 @@ static esp_err_t status_handler(httpd_req_t *req)
   {
   case 0:
     jsonresponse["status"] = "Geri Turda";
+    break;
   case 1:
     jsonresponse["status"] = "İleri Turda";
+    break;
   case 2:
     jsonresponse["status"] = "Şarjda";
+    break;
   case 3:
     jsonresponse["status"] = "Robot Takıldı.";
+    break;
   case 4:
     jsonresponse["status"] = "Acil Stop Basılı.";
+    break;
   case 5:
     jsonresponse["status"] = "Yön Switch Basılı.";
+    break;
+  case 6:
+    jsonresponse["status"] = "Aşırı Akım Hatası";
+    break;
   default:
+    // Serial.printf("status: %d\n", d);
     jsonresponse["status"] = "HATA";
+    break;
   }
+
   serializeJson(jsonresponse, jsonbuffer);
   return httpd_resp_send(req, jsonbuffer, measureJson(jsonresponse));
 }
