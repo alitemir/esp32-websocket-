@@ -258,7 +258,7 @@ static esp_err_t tur_ileri_handler(httpd_req_t *req)
 {
   node.writeSingleCoil(EKTUR_ILERI, HIGH);
   delay(250);
-  Serial.println("ileri turn");
+  // Serial.println("ileri turn");
   node.writeSingleCoil(EKTUR_ILERI, LOW);
   httpd_resp_set_type(req, "text/html");
   return httpd_resp_send(req, "ileri", 5);
@@ -270,7 +270,7 @@ static esp_err_t tur_geri_handler(httpd_req_t *req)
 
   node.writeSingleCoil(EKTUR_GERI, HIGH);
   delay(250);
-  Serial.println("geri turn");
+  // Serial.println("geri turn");
   node.writeSingleCoil(EKTUR_GERI, LOW);
   return httpd_resp_send(req, "geri", 4);
 }
@@ -285,7 +285,7 @@ static esp_err_t status_handler(httpd_req_t *req)
   switch (d)
   {
   case 0:
-    jsonresponse["status"] = "Geri Turda";
+    jsonresponse["status"] = "Robot Takıldı.";
     break;
   case 1:
     jsonresponse["status"] = "İleri Turda";
@@ -294,7 +294,7 @@ static esp_err_t status_handler(httpd_req_t *req)
     jsonresponse["status"] = "Şarjda";
     break;
   case 3:
-    jsonresponse["status"] = "Robot Takıldı.";
+    jsonresponse["status"] = "Geri Turda.";
     break;
   case 4:
     jsonresponse["status"] = "Acil Stop Basılı.";
@@ -303,7 +303,19 @@ static esp_err_t status_handler(httpd_req_t *req)
     jsonresponse["status"] = "Yön Switch Basılı.";
     break;
   case 6:
-    jsonresponse["status"] = "Aşırı Akım Hatası";
+    jsonresponse["status"] = "Robot Şarj Etmiyor.";
+    break;
+  case 7:
+    jsonresponse["status"] = "Manuel İleri";
+    break;
+  case 8:
+    jsonresponse["status"] = "Manuel Geri";
+    break;
+  case 9:
+    jsonresponse["status"] = "Hata!";
+    break;
+  case 10:
+    jsonresponse["status"] = "Şarj Switchi Takılı";
     break;
   default:
     // Serial.printf("status: %d\n", d);
