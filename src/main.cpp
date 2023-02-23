@@ -44,7 +44,7 @@ static esp_err_t tur_ileri_handler(httpd_req_t *req)
 {
   node.writeSingleCoil(EKTUR_ILERI, HIGH);
   delay(250);
-  // Serial.println("ileri turn");
+  Serial.println("ileri turn");
   node.writeSingleCoil(EKTUR_ILERI, LOW);
   httpd_resp_set_type(req, "text/html");
   return httpd_resp_send(req, "ileri", 5);
@@ -53,10 +53,9 @@ static esp_err_t tur_ileri_handler(httpd_req_t *req)
 static esp_err_t tur_geri_handler(httpd_req_t *req)
 {
   httpd_resp_set_type(req, "text/html");
-
   node.writeSingleCoil(EKTUR_GERI, HIGH);
   delay(250);
-  // Serial.println("geri turn");
+  Serial.println("geri turn");
   node.writeSingleCoil(EKTUR_GERI, LOW);
   return httpd_resp_send(req, "geri", 4);
 }
@@ -391,37 +390,91 @@ static esp_err_t cmd_handler(httpd_req_t *req)
 
 static esp_err_t manual_mode_handler(httpd_req_t *req)
 {
-    Serial.println("manual mode");
-    char buffer[16] = {
-        0,
-    };
+  Serial.println("manual mode");
+  char buffer[64] = {
+      0,
+  };
 
-    size_t buf_len;
-    buf_len = httpd_req_get_url_query_len(req) + 1;
-    if (buf_len > 1)
+  size_t buf_len;
+  char *remaining;
+  buf_len = httpd_req_get_url_query_len(req) + 1;
+
+  char sure_buf[3] = {0};
+  char ilerisurme_buf[3] = {0};
+  char gecikme_buf[3] = {0};
+  int sure = 0;
+  int ilerisurme = 0;
+  int gecikme = 0;
+
+  if (buf_len > 1 )
+  {
+    if (httpd_req_get_url_query_str(req, buffer, buf_len) == ESP_OK)
     {
-        if (httpd_req_get_url_query_str(req, buffer, buf_len) == ESP_OK)
-        {
-            if (httpd_query_key_value(buffer, "manual", buffer, sizeof(buffer)) == ESP_OK)
-            {
-                if (!strcmp(buffer, "true"))
-                {
-                    Serial.println("is true");
-                }
-                else if (!strcmp(buffer, "false"))
-                {
-                    Serial.println("buffer is false");
-                }
-                else
-                {
-                    Serial.printf("buffer contains:%s", buffer);
-                }
-            }
-        }
-    }
+    // Serial.printf("buf_len:%d buffer: %s\n",buf_len,buffer);
 
-    httpd_resp_send(req, "OK", HTTPD_RESP_USE_STRLEN);
+      // if (httpd_query_key_value(buffer, "manual", buffer, sizeof(buffer)) == ESP_OK)
+      // {
+      //   if (!strcmp(buffer, "true"))
+      //   {
+      //     Serial.println("is true");
+      //   }
+      //   else if (!strcmp(buffer, "false"))
+      //   {
+      //     Serial.println("buffer is false");
+      //   }
+      //   else
+      //   {
+      //     Serial.printf("buffer contains:%s", buffer);
+      //   }
+      // }
+      // else
+      
+      if ( httpd_query_key_value(buffer, "sure",sure_buf, sizeof(buffer))==ESP_OK)
+      {
+        sure = strtol(sure_buf, &remaining, 10);
+        // Serial.printf("buffer:%c %",*remaining);
+        // Serial.printf("sure_l:%d\n",sure);
+      }
+
+      if ( httpd_query_key_value(buffer, "ilerisurme", ilerisurme_buf, sizeof(buffer))==ESP_OK);
+      {
+        ilerisurme = strtol(ilerisurme_buf, &remaining, 10);
+        // printf("buffer:%c",*remaining);
+        // Serial.printf("ilerisurme_l:%d ilerisurme:%d\n",ilerisurme_l,ilerisurme);
+      }
+      esp_err_t gecikme_kv = httpd_query_key_value(buffer, "gecikme", gecikme_buf, sizeof(buffer));
+      if (gecikme_kv == ESP_OK)
+      {
+        gecikme = strtol(gecikme_buf, &remaining, 10);
+        // printf("buffer:%c",*remaining);
+      //  Serial.printf("gecikme_l:%d gecikme_kv:%d\n",gecikme_l,gecikme_kv);
+
+      }
+      // if (sure_kv == ESP_OK && ilerisurme == ESP_OK && gecikme_kv == ESP_OK)
+      // {
+
+      // }
+      // esp_err_t sure = httpd_query_key_value(buffer, "sure", buffer, sizeof(buffer));
+      // esp_err_t ilerisurme = httpd_query_key_value(buffer, "ilerisurme", buffer, sizeof(buffer));
+      // esp_err_t gecikme = httpd_query_key_value(buffer, "gecikme", buffer, sizeof(buffer));
+
+      // if (sure_kv == ESP_OK && ilerisurme_kv == ESP_OK && gecikme_kv == ESP_OK){
+      // }
+      if (sure&& gecikme&&ilerisurme){
+
+      Serial.printf("sure:%d ilerisurme:%d gecikme:%d\n",sure, ilerisurme,gecikme);
+    
+      httpd_resp_send(req, "OK", HTTPD_RESP_USE_STRLEN);
     return ESP_OK;
+      }
+    }
+  httpd_resp_send_404(req);
+  return ESP_FAIL;
+    // Serial.printf("%d %d %d",sure_kv,ilerisurme_kv,gecikme_kv);
+  }
+  httpd_resp_send_404(req);
+  return ESP_FAIL;
+  
 }
 
 static esp_err_t save_handler(httpd_req_t *req)
@@ -507,41 +560,42 @@ static esp_err_t get_times_handler(httpd_req_t *req)
 
 static void readAlarms()
 {
-  // int result = node.readHoldingRegisters(ALARM_ADDR_BEGIN, 16);
-  // if (result == node.ku8MBSuccess)
-  // {
-  //   for (int j = 0; j < 16; j += 2)
-  //   {
-  //     int hour = node.getResponseBuffer(j);
-  //     int minute = node.getResponseBuffer(j + 1);
+  int result = node.readHoldingRegisters(ALARM_ADDR_BEGIN, 16);
+  if (result == node.ku8MBSuccess)
+  {
+    for (int j = 0; j < 16; j += 2)
+    {
+      int hour = node.getResponseBuffer(j);
+      int minute = node.getResponseBuffer(j + 1);
 
-  //     Serial.printf("%02d:%02d\n", hour, minute);
-  //   }
-  // }
-  // else
-  // {
-  //   Serial.println("Alarm read error");
-  // }
-  // // Serial.println();
+      Serial.printf("%02d:%02d\n", hour, minute);
+    }
+  }
+  else
+  {
+    Serial.println("Alarm read error");
+  }
+  // Serial.println();
 }
 
 static void readAlarmStatus()
 {
-  // int result = node.readHoldingRegisters(ALARM_SETTINGS_ADDR_BEGIN, 8);
-  // if (result == node.ku8MBSuccess)
-  // {
-  //   for (int j = 0; j < 8; j++)
-  //   {
-  //     int alarmStatus = node.getResponseBuffer(j);
-  //     Serial.printf("%d", alarmStatus);
-  //   }
-  // }
-  // else
-  // {
-  //   Serial.println("Alarm status read error");
-  // }
-  // // Serial.println("");
+  int result = node.readHoldingRegisters(ALARM_SETTINGS_ADDR_BEGIN, 8);
+  if (result == node.ku8MBSuccess)
+  {
+    for (int j = 0; j < 8; j++)
+    {
+      int alarmStatus = node.getResponseBuffer(j);
+      Serial.printf("%d", alarmStatus);
+    }
+  }
+  else
+  {
+    Serial.println("Alarm status read error");
+  }
+  Serial.println("");
 }
+
 // esp_err_t error_handler(httpd_req_t *req, httpd_err_code_t err)
 // {
 //     httpd_resp_set_status(req, "302 Temporary Redirect");
@@ -573,7 +627,7 @@ esp_err_t startServer(const char *base_path)
   Serial.println(server_data->base_path);
 
   config.uri_match_fn = httpd_uri_match_wildcard;
-  config.max_uri_handlers = 8;
+  config.max_uri_handlers = 16;
   config.server_port = 80;
 
   httpd_uri_t index_uri = {
