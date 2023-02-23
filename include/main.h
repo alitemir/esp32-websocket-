@@ -30,10 +30,20 @@
 // Zamanlayıcı adresleri - Tek seferde 8 adres okunur
 #define ALARM_SETTINGS_ADDR_BEGIN 0x119A // 0x119A - 0x11A1 arası
 
-// Robotun sarj ve tur durumu adresleri
+// Robotun sarj ve tur adresleri
 #define CHARGING_COIL 0x800
 #define ON_TOUR_COIL 0x801
+
+// Robotun Durum adresi
 #define DURUM 0x100C
+
+// Kış Modu Ayarları
+#define ILERI_SURE 0x11A4
+#define GERI_SURE 0x11A6
+#define GECIKME 0x11A8
+#define KIS_MODU_AKTIF 0x11AE
+#define BIRINCI_MOD 0x11B0
+#define IKINCI_MOD 0x11B2
 
 #define FILE_PATH_MAX (ESP_VFS_PATH_MAX + CONFIG_SPIFFS_OBJ_NAME_LEN)
 #define SCRATCH_BUFSIZE 4096

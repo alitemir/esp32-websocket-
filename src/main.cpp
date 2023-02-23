@@ -10,15 +10,11 @@
 #include <esp_spiffs.h>
 #include "main.h"
 
-// #include "fs_utils.h"
-// #include "dl_handlers.h"
-// #include "cmd_handlers.h"
-// extern "C"
-// {
-// #include "alarms.h"
-// #include "http_utils.h"
-// #include "tur_handlers.h"
-// }
+// TODO
+// allocation islemlerini calloc ile yap statik bufferlari sil.
+// html tarafinda sureleri limitle (3 basamak max)
+// dosyalari islere gore ayir
+// wifi ismi i-can olacak
 
 // #include <SoftwareSerial.h>
 
@@ -239,153 +235,153 @@ static esp_err_t download_handler(httpd_req_t *req)
 
 static esp_err_t status_handler(httpd_req_t *req)
 {
-    char jsonbuffer[100];
-    StaticJsonDocument<50> jsonresponse;
-    jsonresponse["amp"] = (float)node.getResponseBuffer(node.readHoldingRegisters(CURRENT, 1)) / 10.0;
-    jsonresponse["volt"] = (float)node.getResponseBuffer(node.readHoldingRegisters(VOLTAGE, 1)) / 10.0;
-    int d = node.getResponseBuffer(node.readHoldingRegisters(DURUM, 1));
+  char jsonbuffer[100];
+  StaticJsonDocument<50> jsonresponse;
+  jsonresponse["amp"] = (float)node.getResponseBuffer(node.readHoldingRegisters(CURRENT, 1)) / 10.0;
+  jsonresponse["volt"] = (float)node.getResponseBuffer(node.readHoldingRegisters(VOLTAGE, 1)) / 10.0;
+  int d = node.getResponseBuffer(node.readHoldingRegisters(DURUM, 1));
 
-    switch (d)
-    {
-    case 0:
-        jsonresponse["status"] = "Robot Takıldı.";
-        break;
-    case 1:
-        jsonresponse["status"] = "İleri Turda";
-        break;
-    case 2:
-        jsonresponse["status"] = "Şarjda";
-        break;
-    case 3:
-        jsonresponse["status"] = "Geri Turda.";
-        break;
-    case 4:
-        jsonresponse["status"] = "Acil Stop Basılı.";
-        break;
-    case 5:
-        jsonresponse["status"] = "Yön Switch Basılı.";
-        break;
-    case 6:
-        jsonresponse["status"] = "Robot Şarj Etmiyor.";
-        break;
-    case 7:
-        jsonresponse["status"] = "Manuel İleri";
-        break;
-    case 8:
-        jsonresponse["status"] = "Manuel Geri";
-        break;
-    case 9:
-        jsonresponse["status"] = "Hata!";
-        break;
-    case 10:
-        jsonresponse["status"] = "Şarj Switchi Takılı";
-        break;
-    default:
-        // Serial.printf("status: %d\n", d);
-        jsonresponse["status"] = "HATA";
-        break;
-    }
+  switch (d)
+  {
+  case 0:
+    jsonresponse["status"] = "Robot Takıldı.";
+    break;
+  case 1:
+    jsonresponse["status"] = "İleri Turda";
+    break;
+  case 2:
+    jsonresponse["status"] = "Şarjda";
+    break;
+  case 3:
+    jsonresponse["status"] = "Geri Turda.";
+    break;
+  case 4:
+    jsonresponse["status"] = "Acil Stop Basılı.";
+    break;
+  case 5:
+    jsonresponse["status"] = "Yön Switch Basılı.";
+    break;
+  case 6:
+    jsonresponse["status"] = "Robot Şarj Etmiyor.";
+    break;
+  case 7:
+    jsonresponse["status"] = "Manuel İleri";
+    break;
+  case 8:
+    jsonresponse["status"] = "Manuel Geri";
+    break;
+  case 9:
+    jsonresponse["status"] = "Hata!";
+    break;
+  case 10:
+    jsonresponse["status"] = "Şarj Switchi Takılı";
+    break;
+  default:
+    // Serial.printf("status: %d\n", d);
+    jsonresponse["status"] = "HATA";
+    break;
+  }
 
-    serializeJson(jsonresponse, jsonbuffer);
-    return httpd_resp_send(req, jsonbuffer, measureJson(jsonresponse));
+  serializeJson(jsonresponse, jsonbuffer);
+  return httpd_resp_send(req, jsonbuffer, measureJson(jsonresponse));
 }
 
 static esp_err_t cmd_handler(httpd_req_t *req)
 {
-    char buffer[16] = {
-        0,
-    };
-    size_t buf_len;
-    buf_len = httpd_req_get_url_query_len(req) + 1;
-    // Serial.printf("buf_len:%d\n", buf_len);
-    if (buf_len > 1)
+  char buffer[16] = {
+      0,
+  };
+  size_t buf_len;
+  buf_len = httpd_req_get_url_query_len(req) + 1;
+  // Serial.printf("buf_len:%d\n", buf_len);
+  if (buf_len > 1)
+  {
+    if (httpd_req_get_url_query_str(req, buffer, buf_len) == ESP_OK)
     {
-        if (httpd_req_get_url_query_str(req, buffer, buf_len) == ESP_OK)
-        {
-            if (httpd_query_key_value(buffer, "go", buffer, sizeof(buffer)) == ESP_OK)
-            {
-            }
-            else
-            {
-                // time parametresi yoksa
-                httpd_resp_send_404(req);
-                return ESP_FAIL;
-            }
-        }
-        else
-        {
-            // go parametresi yoksa
-            httpd_resp_send_404(req);
-            return ESP_FAIL;
-        }
-        // parametre yoksa
-    }
-    else
-    {
+      if (httpd_query_key_value(buffer, "go", buffer, sizeof(buffer)) == ESP_OK)
+      {
+      }
+      else
+      {
+        // time parametresi yoksa
         httpd_resp_send_404(req);
         return ESP_FAIL;
-    }
-
-    int res = 0;
-
-    if (!strcmp(buffer, "forward"))
-    {
-        // Serial.println("Forward");
-        node.writeSingleCoil(FORWARD_ADDRESS, HIGH);
-        digitalWrite(LED_PIN, 1);
-    }
-    else if (!strcmp(buffer, "left"))
-    {
-        // Serial.println("Left");
-        node.writeSingleCoil(LEFT_ADDRESS, HIGH);
-        digitalWrite(LED_PIN, 1);
-    }
-    else if (!strcmp(buffer, "right"))
-    {
-        // Serial.println("Right");
-        node.writeSingleCoil(RIGHT_ADDRESS, HIGH);
-        digitalWrite(LED_PIN, 1);
-    }
-    else if (!strcmp(buffer, "backward"))
-    {
-        // Serial.println("Backward");
-        node.writeSingleCoil(BACKWARD_ADDRESS, HIGH);
-        digitalWrite(LED_PIN, 1);
-    }
-    else if (!strcmp(buffer, "stop"))
-    {
-        // Serial.println("Stop");
-        node.writeSingleCoil(STOP_ADDRESS, HIGH);
-        digitalWrite(LED_PIN, 1);
-    }
-    else if (!strcmp(buffer, "ektur"))
-    {
-        Serial.println("Ektur");
-    }
-
-    else if (!strcmp(buffer, "x"))
-    {
-        node.writeSingleCoil(FORWARD_ADDRESS, LOW);
-        node.writeSingleCoil(BACKWARD_ADDRESS, LOW);
-        node.writeSingleCoil(RIGHT_ADDRESS, LOW);
-        node.writeSingleCoil(LEFT_ADDRESS, LOW);
-        node.writeSingleCoil(STOP_ADDRESS, LOW);
-        digitalWrite(LED_PIN, 0);
-        // Serial.println("x");
+      }
     }
     else
     {
-
-        res = -1;
+      // go parametresi yoksa
+      httpd_resp_send_404(req);
+      return ESP_FAIL;
     }
-    if (res)
-    {
-        return httpd_resp_send_500(req);
-    }
+    // parametre yoksa
+  }
+  else
+  {
+    httpd_resp_send_404(req);
+    return ESP_FAIL;
+  }
 
-    memset(buffer, 0, sizeof(buffer));
-    httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
-    return httpd_resp_send(req, NULL, 0);
+  int res = 0;
+
+  if (!strcmp(buffer, "forward"))
+  {
+    // Serial.println("Forward");
+    node.writeSingleCoil(FORWARD_ADDRESS, HIGH);
+    digitalWrite(LED_PIN, 1);
+  }
+  else if (!strcmp(buffer, "left"))
+  {
+    // Serial.println("Left");
+    node.writeSingleCoil(LEFT_ADDRESS, HIGH);
+    digitalWrite(LED_PIN, 1);
+  }
+  else if (!strcmp(buffer, "right"))
+  {
+    // Serial.println("Right");
+    node.writeSingleCoil(RIGHT_ADDRESS, HIGH);
+    digitalWrite(LED_PIN, 1);
+  }
+  else if (!strcmp(buffer, "backward"))
+  {
+    // Serial.println("Backward");
+    node.writeSingleCoil(BACKWARD_ADDRESS, HIGH);
+    digitalWrite(LED_PIN, 1);
+  }
+  else if (!strcmp(buffer, "stop"))
+  {
+    // Serial.println("Stop");
+    node.writeSingleCoil(STOP_ADDRESS, HIGH);
+    digitalWrite(LED_PIN, 1);
+  }
+  else if (!strcmp(buffer, "ektur"))
+  {
+    Serial.println("Ektur");
+  }
+
+  else if (!strcmp(buffer, "x"))
+  {
+    node.writeSingleCoil(FORWARD_ADDRESS, LOW);
+    node.writeSingleCoil(BACKWARD_ADDRESS, LOW);
+    node.writeSingleCoil(RIGHT_ADDRESS, LOW);
+    node.writeSingleCoil(LEFT_ADDRESS, LOW);
+    node.writeSingleCoil(STOP_ADDRESS, LOW);
+    digitalWrite(LED_PIN, 0);
+    // Serial.println("x");
+  }
+  else
+  {
+
+    res = -1;
+  }
+  if (res)
+  {
+    return httpd_resp_send_500(req);
+  }
+
+  memset(buffer, 0, sizeof(buffer));
+  httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
+  return httpd_resp_send(req, NULL, 0);
 }
 
 static esp_err_t manual_mode_handler(httpd_req_t *req)
@@ -406,11 +402,11 @@ static esp_err_t manual_mode_handler(httpd_req_t *req)
   int ilerisurme = 0;
   int gecikme = 0;
 
-  if (buf_len > 1 )
+  if (buf_len > 1)
   {
     if (httpd_req_get_url_query_str(req, buffer, buf_len) == ESP_OK)
     {
-    // Serial.printf("buf_len:%d buffer: %s\n",buf_len,buffer);
+      // Serial.printf("buf_len:%d buffer: %s\n",buf_len,buffer);
 
       // if (httpd_query_key_value(buffer, "manual", buffer, sizeof(buffer)) == ESP_OK)
       // {
@@ -428,27 +424,25 @@ static esp_err_t manual_mode_handler(httpd_req_t *req)
       //   }
       // }
       // else
-      
-      if ( httpd_query_key_value(buffer, "sure",sure_buf, sizeof(buffer))==ESP_OK)
+
+      if (httpd_query_key_value(buffer, "sure", sure_buf, sizeof(buffer)) == ESP_OK)
       {
         sure = strtol(sure_buf, &remaining, 10);
         // Serial.printf("buffer:%c %",*remaining);
         // Serial.printf("sure_l:%d\n",sure);
       }
 
-      if ( httpd_query_key_value(buffer, "ilerisurme", ilerisurme_buf, sizeof(buffer))==ESP_OK);
+      if (httpd_query_key_value(buffer, "ilerisurme", ilerisurme_buf, sizeof(buffer)) == ESP_OK)
       {
         ilerisurme = strtol(ilerisurme_buf, &remaining, 10);
         // printf("buffer:%c",*remaining);
         // Serial.printf("ilerisurme_l:%d ilerisurme:%d\n",ilerisurme_l,ilerisurme);
       }
-      esp_err_t gecikme_kv = httpd_query_key_value(buffer, "gecikme", gecikme_buf, sizeof(buffer));
-      if (gecikme_kv == ESP_OK)
+      if ( httpd_query_key_value(buffer, "gecikme", gecikme_buf, sizeof(buffer))==ESP_OK)
       {
         gecikme = strtol(gecikme_buf, &remaining, 10);
         // printf("buffer:%c",*remaining);
-      //  Serial.printf("gecikme_l:%d gecikme_kv:%d\n",gecikme_l,gecikme_kv);
-
+        //  Serial.printf("gecikme_l:%d gecikme_kv:%d\n",gecikme_l,gecikme_kv);
       }
       // if (sure_kv == ESP_OK && ilerisurme == ESP_OK && gecikme_kv == ESP_OK)
       // {
@@ -460,102 +454,118 @@ static esp_err_t manual_mode_handler(httpd_req_t *req)
 
       // if (sure_kv == ESP_OK && ilerisurme_kv == ESP_OK && gecikme_kv == ESP_OK){
       // }
-      if (sure&& gecikme&&ilerisurme){
-
-      Serial.printf("sure:%d ilerisurme:%d gecikme:%d\n",sure, ilerisurme,gecikme);
-    
-      httpd_resp_send(req, "OK", HTTPD_RESP_USE_STRLEN);
-    return ESP_OK;
+      if (sure && gecikme && ilerisurme)
+      {
+        Serial.printf("sure:%d ilerisurme:%d gecikme:%d\n", sure, ilerisurme, gecikme);
+        node.writeSingleRegister(GERI_SURE,sure);
+        node.writeSingleRegister(ILERI_SURE,ilerisurme);
+        node.writeSingleRegister(GECIKME,gecikme);
+        httpd_resp_send(req, "OK", HTTPD_RESP_USE_STRLEN);
+        return ESP_OK;
       }
     }
-  httpd_resp_send_404(req);
-  return ESP_FAIL;
+    httpd_resp_send_404(req);
+    return ESP_FAIL;
     // Serial.printf("%d %d %d",sure_kv,ilerisurme_kv,gecikme_kv);
   }
   httpd_resp_send_404(req);
   return ESP_FAIL;
-  
 }
 
 static esp_err_t save_handler(httpd_req_t *req)
 {
-    Serial.println("save_handler");
+  Serial.println("save_handler");
 
-    int t1 = millis();
-    char buffer[90];
-    size_t buf_len;
-    buf_len = httpd_req_get_url_query_len(req) + 1;
-    if (buf_len > 1)
+  int t1 = millis();
+  char buffer[90];
+  size_t buf_len;
+  buf_len = httpd_req_get_url_query_len(req) + 1;
+  if (buf_len > 1)
+  {
+    if (httpd_req_get_url_query_str(req, buffer, buf_len) == ESP_OK)
     {
-        if (httpd_req_get_url_query_str(req, buffer, buf_len) == ESP_OK)
+      if (httpd_query_key_value(buffer, "alarms", buffer, sizeof(buffer)) == ESP_OK)
+      {
+        char *token, *subtoken;
+        char *saveptr1, *saveptr2;
+        int saat, dakika;
+        bool checkboxStatus;
+        int i = 0;
+        int addr = ALARM_ADDR_BEGIN;
+        int alarm_status_begin = ALARM_SETTINGS_ADDR_BEGIN;
+        for (token = strtok_r(buffer, "[", &saveptr1); token != NULL; token = strtok_r(NULL, "[", &saveptr1))
         {
-            if (httpd_query_key_value(buffer, "alarms", buffer, sizeof(buffer)) == ESP_OK)
-            {
-                char *token, *subtoken;
-                char *saveptr1, *saveptr2;
-                int saat, dakika;
-                bool checkboxStatus;
-                int i = 0;
-                int addr = ALARM_ADDR_BEGIN;
-                int alarm_status_begin = ALARM_SETTINGS_ADDR_BEGIN;
-                for (token = strtok_r(buffer, "[", &saveptr1); token != NULL; token = strtok_r(NULL, "[", &saveptr1))
-                {
-                    for (subtoken = strtok_r(token, ",", &saveptr2); subtoken != NULL; subtoken = strtok_r(NULL, ",", &saveptr2))
-                    {
-                        saat = atoi(subtoken);
-                        subtoken = strtok_r(NULL, ",", &saveptr2);
-                        dakika = atoi(subtoken);
-                        subtoken = strtok_r(NULL, ",", &saveptr2);
-                        checkboxStatus = atoi(subtoken);
-                        node.writeSingleRegister(addr, saat);
-                        node.writeSingleRegister(addr + 1, dakika);
-                        node.writeSingleRegister(alarm_status_begin + i, checkboxStatus);
-                        // 180 Serial.printf("i:%d saat: %02d, dakika: %02d on_off:%d\n", i, saat, dakika, checkboxStatus);
-                        i++;
-                        addr += 2;
-                    }
-                }
-                const char resp[] = "OK";
-                httpd_resp_send(req, resp, HTTPD_RESP_USE_STRLEN);
-            }
+          for (subtoken = strtok_r(token, ",", &saveptr2); subtoken != NULL; subtoken = strtok_r(NULL, ",", &saveptr2))
+          {
+            saat = atoi(subtoken);
+            subtoken = strtok_r(NULL, ",", &saveptr2);
+            dakika = atoi(subtoken);
+            subtoken = strtok_r(NULL, ",", &saveptr2);
+            checkboxStatus = atoi(subtoken);
+            node.writeSingleRegister(addr, saat);
+            node.writeSingleRegister(addr + 1, dakika);
+            node.writeSingleRegister(alarm_status_begin + i, checkboxStatus);
+            // 180 Serial.printf("i:%d saat: %02d, dakika: %02d on_off:%d\n", i, saat, dakika, checkboxStatus);
+            i++;
+            addr += 2;
+          }
         }
+        const char resp[] = "OK";
+        httpd_resp_send(req, resp, HTTPD_RESP_USE_STRLEN);
+      }
     }
-    int t2 = millis();
-    printf("Alarms saved in %d ms\n", t2 - t1);
-    return ESP_OK;
+  }
+  int t2 = millis();
+  printf("Alarms saved in %d ms\n", t2 - t1);
+  return ESP_OK;
 }
 
 static esp_err_t get_times_handler(httpd_req_t *req)
 {
-    char jsonbuffer[100];
-    Serial.println("get_times_handler");
-    StaticJsonDocument<280> jsonresponse;
-    char buffer[8];
-    int result = node.readHoldingRegisters(ALARM_ADDR_BEGIN, 16);
-    if (result == node.ku8MBSuccess)
+  char jsonbuffer[100];
+  Serial.println("get_times_handler");
+  StaticJsonDocument<280> jsonresponse;
+  char buffer[8];
+  int result = node.readHoldingRegisters(ALARM_ADDR_BEGIN, 16);
+  if (result == node.ku8MBSuccess)
+  {
+    for (int j = 0; j < 16; j += 2)
     {
-        for (int j = 0; j < 16; j += 2)
-        {
-            int hour = node.getResponseBuffer(j);
-            int minute = node.getResponseBuffer(j + 1);
-            bool checkboxStatus = node.getResponseBuffer(node.readHoldingRegisters(ALARM_SETTINGS_ADDR_BEGIN + (j / 2), 1));
-            snprintf(buffer, sizeof(buffer), "%02d:%02d,%d", hour, minute, checkboxStatus);
-            jsonresponse.add(buffer);
-            // Serial.printf(" %X %d %d\n",ALARM_SETTINGS_ADDR_BEGIN+(j/2),checkboxStatus,j/2);
-        }
+      int hour = node.getResponseBuffer(j);
+      int minute = node.getResponseBuffer(j + 1);
+      bool checkboxStatus = node.getResponseBuffer(node.readHoldingRegisters(ALARM_SETTINGS_ADDR_BEGIN + (j / 2), 1));
+      snprintf(buffer, sizeof(buffer), "%02d:%02d,%d", hour, minute, checkboxStatus);
+      jsonresponse.add(buffer);
+      // Serial.printf(" %X %d %d\n",ALARM_SETTINGS_ADDR_BEGIN+(j/2),checkboxStatus,j/2);
     }
-    else
-    {
-        Serial.println("Alarm read error");
-    }
-    // for (int i = 0; i < 16; i += 2)
-    // {
-    //   snprintf(buffer, sizeof(buffer), "%02d:%02d,%d", i, i, 1);
-    //   jsonresponse.add(buffer);
-    //   Serial.println(buffer);
-    // }
-    serializeJson(jsonresponse, jsonbuffer);
-    return httpd_resp_send(req, jsonbuffer, measureJson(jsonresponse));
+  }
+  else
+  {
+    Serial.println("Alarm read error");
+  }
+  // for (int i = 0; i < 16; i += 2)
+  // {
+  //   snprintf(buffer, sizeof(buffer), "%02d:%02d,%d", i, i, 1);
+  //   jsonresponse.add(buffer);
+  //   Serial.println(buffer);
+  // }
+  serializeJson(jsonresponse, jsonbuffer);
+  return httpd_resp_send(req, jsonbuffer, measureJson(jsonresponse));
+}
+
+static esp_err_t winter_mode_handler()
+{
+  Serial.println("winter mode handler");
+  int ileri_sure = node.getResponseBuffer(node.readHoldingRegisters(ILERI_SURE, 1));
+  int geri_sure = node.getResponseBuffer(node.readHoldingRegisters(GERI_SURE, 1));
+  int gecikme = node.getResponseBuffer(node.readHoldingRegisters(GECIKME, 1));
+  int kis_modu_aktif = node.getResponseBuffer(node.readHoldingRegisters(KIS_MODU_AKTIF, 1));
+  int birinci_mod = node.getResponseBuffer(node.readHoldingRegisters(BIRINCI_MOD, 1));
+  int ikinci_mod = node.getResponseBuffer(node.readHoldingRegisters(IKINCI_MOD, 1));
+
+  Serial.printf("ileri:%d geri:%d gecikme:%d kis:%d 1.:%d 2.:%d\n", ileri_sure, geri_sure,
+               gecikme, kis_modu_aktif, birinci_mod, ikinci_mod);
+  return ESP_OK;
 }
 
 static void readAlarms()
@@ -686,7 +696,6 @@ esp_err_t startServer(const char *base_path)
 
   if (httpd_start(&gubre_siyirma, &config) == ESP_OK)
   {
-
     httpd_register_uri_handler(gubre_siyirma, &file_serve);
     httpd_register_uri_handler(gubre_siyirma, &index_uri);
     httpd_register_uri_handler(gubre_siyirma, &save_uri);
@@ -770,7 +779,7 @@ void setup()
   Serial1.begin(115200, SERIAL_8N1, SERIAL1_RX, SERIAL1_TX);
   // ss.begin(115200);
 
-  Serial.setDebugOutput(false);
+  Serial.setDebugOutput(true);
   node.begin(2, Serial1);
   node.preTransmission(preTransmission);
   node.postTransmission(postTransmission);
@@ -805,7 +814,7 @@ void setup()
   mdns_service_add("GubreSiyirmaWebServer", "_http", "_tcp", 80, NULL, 0);
   readAlarms();
   readAlarmStatus();
-
+  winter_mode_handler();
   mount_storage(base_path);
   nvs_flash_init();
   startServer("");
