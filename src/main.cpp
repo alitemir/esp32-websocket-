@@ -770,7 +770,7 @@ void setup()
   Serial1.begin(115200, SERIAL_8N1, SERIAL1_RX, SERIAL1_TX);
   // ss.begin(115200);
 
-  Serial.setDebugOutput(true);
+  Serial.setDebugOutput(false);
   node.begin(2, Serial1);
   node.preTransmission(preTransmission);
   node.postTransmission(postTransmission);
@@ -781,12 +781,13 @@ void setup()
   WiFi.softAP(softap_mac, ap_pwd);
 
   // WiFi.begin(ssid, password);
-
   WiFi.setHostname(mdns_host);
+  // delay(100);
   Serial.print("Wifi access point created: http://");
   Serial.println(WiFi.softAPIP());
-  Serial.print("Remote Ready! Go to: http://");
-  Serial.println(WiFi.softAPIP());
+
+  // Serial.print("Remote Ready! Go to: http://");
+  // Serial.println(WiFi.softAPIP());
 
   // while (WiFi.status() != WL_CONNECTED)
   // {
