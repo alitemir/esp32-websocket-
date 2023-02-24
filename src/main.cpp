@@ -24,6 +24,7 @@
 
 // AP Modu ayarları
 // const char *ap_ssid = "GubreSiyirma";
+
 const char *ap_pwd = "12345678";
 
 const char *hotspot_ssid = "mustafa_ali_can";
@@ -233,6 +234,18 @@ static esp_err_t download_handler(httpd_req_t *req)
   return ESP_OK;
 }
 
+static esp_err_t winter_status_handler(httpd_req_t *req)
+{
+  char jsonbuffer[100];
+  StaticJsonDocument<50> jsonresponse;
+  jsonresponse["wintermode"] = 1;
+  jsonresponse["firstmode"] = node.getResponseBuffer(node.readHoldingRegisters(BIRINCI_MOD, 1));
+  jsonresponse["secondmode"] = node.getResponseBuffer(node.readHoldingRegisters(IKINCI_MOD, 1));
+  serializeJson(jsonresponse, jsonbuffer);
+  return httpd_resp_send(req, jsonbuffer, measureJson(jsonresponse));
+  return ESP_OK;
+}
+
 static esp_err_t status_handler(httpd_req_t *req)
 {
   char jsonbuffer[100];
@@ -240,7 +253,6 @@ static esp_err_t status_handler(httpd_req_t *req)
   jsonresponse["amp"] = (float)node.getResponseBuffer(node.readHoldingRegisters(CURRENT, 1)) / 10.0;
   jsonresponse["volt"] = (float)node.getResponseBuffer(node.readHoldingRegisters(VOLTAGE, 1)) / 10.0;
   int d = node.getResponseBuffer(node.readHoldingRegisters(DURUM, 1));
-
   switch (d)
   {
   case 0:
@@ -293,7 +305,6 @@ static esp_err_t cmd_handler(httpd_req_t *req)
   };
   size_t buf_len;
   buf_len = httpd_req_get_url_query_len(req) + 1;
-  // Serial.printf("buf_len:%d\n", buf_len);
   if (buf_len > 1)
   {
     if (httpd_req_get_url_query_str(req, buffer, buf_len) == ESP_OK)
@@ -378,10 +389,51 @@ static esp_err_t cmd_handler(httpd_req_t *req)
   {
     return httpd_resp_send_500(req);
   }
-
   memset(buffer, 0, sizeof(buffer));
   httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
   return httpd_resp_send(req, NULL, 0);
+}
+
+static esp_err_t winter_mode_handler(httpd_req_t *req)
+{
+  // Serial.println("winter mode");
+  char buffer[64] = {
+      0,
+  };
+
+  size_t buf_len;
+  char *remaining;
+  buf_len = httpd_req_get_url_query_len(req) + 1;
+
+  char mode_buf[3] = {0};
+
+  int firstmode = 0;
+  int secondmode = 0;
+
+  if (buf_len > 1)
+  {
+    if (httpd_req_get_url_query_str(req, buffer, buf_len) == ESP_OK)
+    {
+      if (httpd_query_key_value(buffer, "mode1", mode_buf, sizeof(buffer)) == ESP_OK)
+      {
+        firstmode = strtol(mode_buf, &remaining, 10);
+        node.writeSingleRegister(BIRINCI_MOD, firstmode);
+        Serial.printf("first mode:%d\n", firstmode);
+        httpd_resp_send(req, "OK", HTTPD_RESP_USE_STRLEN);
+        return ESP_OK;
+      }
+      if (httpd_query_key_value(buffer, "mode2", mode_buf, sizeof(buffer)) == ESP_OK)
+      {
+        secondmode = strtol(mode_buf, &remaining, 10);
+        node.writeSingleRegister(IKINCI_MOD, secondmode);
+        Serial.printf("second mode:%d\n", secondmode);
+        httpd_resp_send(req, "OK", HTTPD_RESP_USE_STRLEN);
+        return ESP_OK;
+      }
+    }
+  }
+  httpd_resp_send_404(req);
+  return ESP_FAIL;
 }
 
 static esp_err_t manual_mode_handler(httpd_req_t *req)
@@ -406,67 +458,31 @@ static esp_err_t manual_mode_handler(httpd_req_t *req)
   {
     if (httpd_req_get_url_query_str(req, buffer, buf_len) == ESP_OK)
     {
-      // Serial.printf("buf_len:%d buffer: %s\n",buf_len,buffer);
-
-      // if (httpd_query_key_value(buffer, "manual", buffer, sizeof(buffer)) == ESP_OK)
-      // {
-      //   if (!strcmp(buffer, "true"))
-      //   {
-      //     Serial.println("is true");
-      //   }
-      //   else if (!strcmp(buffer, "false"))
-      //   {
-      //     Serial.println("buffer is false");
-      //   }
-      //   else
-      //   {
-      //     Serial.printf("buffer contains:%s", buffer);
-      //   }
-      // }
-      // else
-
       if (httpd_query_key_value(buffer, "sure", sure_buf, sizeof(buffer)) == ESP_OK)
       {
         sure = strtol(sure_buf, &remaining, 10);
-        // Serial.printf("buffer:%c %",*remaining);
-        // Serial.printf("sure_l:%d\n",sure);
       }
 
       if (httpd_query_key_value(buffer, "ilerisurme", ilerisurme_buf, sizeof(buffer)) == ESP_OK)
       {
         ilerisurme = strtol(ilerisurme_buf, &remaining, 10);
-        // printf("buffer:%c",*remaining);
-        // Serial.printf("ilerisurme_l:%d ilerisurme:%d\n",ilerisurme_l,ilerisurme);
       }
-      if ( httpd_query_key_value(buffer, "gecikme", gecikme_buf, sizeof(buffer))==ESP_OK)
+      if (httpd_query_key_value(buffer, "gecikme", gecikme_buf, sizeof(buffer)) == ESP_OK)
       {
         gecikme = strtol(gecikme_buf, &remaining, 10);
-        // printf("buffer:%c",*remaining);
-        //  Serial.printf("gecikme_l:%d gecikme_kv:%d\n",gecikme_l,gecikme_kv);
       }
-      // if (sure_kv == ESP_OK && ilerisurme == ESP_OK && gecikme_kv == ESP_OK)
-      // {
-
-      // }
-      // esp_err_t sure = httpd_query_key_value(buffer, "sure", buffer, sizeof(buffer));
-      // esp_err_t ilerisurme = httpd_query_key_value(buffer, "ilerisurme", buffer, sizeof(buffer));
-      // esp_err_t gecikme = httpd_query_key_value(buffer, "gecikme", buffer, sizeof(buffer));
-
-      // if (sure_kv == ESP_OK && ilerisurme_kv == ESP_OK && gecikme_kv == ESP_OK){
-      // }
       if (sure && gecikme && ilerisurme)
       {
         Serial.printf("sure:%d ilerisurme:%d gecikme:%d\n", sure, ilerisurme, gecikme);
-        node.writeSingleRegister(GERI_SURE,sure);
-        node.writeSingleRegister(ILERI_SURE,ilerisurme);
-        node.writeSingleRegister(GECIKME,gecikme);
+        node.writeSingleRegister(GERI_SURE, sure);
+        node.writeSingleRegister(ILERI_SURE, ilerisurme);
+        node.writeSingleRegister(GECIKME, gecikme);
         httpd_resp_send(req, "OK", HTTPD_RESP_USE_STRLEN);
         return ESP_OK;
       }
     }
     httpd_resp_send_404(req);
     return ESP_FAIL;
-    // Serial.printf("%d %d %d",sure_kv,ilerisurme_kv,gecikme_kv);
   }
   httpd_resp_send_404(req);
   return ESP_FAIL;
@@ -543,12 +559,6 @@ static esp_err_t get_times_handler(httpd_req_t *req)
   {
     Serial.println("Alarm read error");
   }
-  // for (int i = 0; i < 16; i += 2)
-  // {
-  //   snprintf(buffer, sizeof(buffer), "%02d:%02d,%d", i, i, 1);
-  //   jsonresponse.add(buffer);
-  //   Serial.println(buffer);
-  // }
   serializeJson(jsonresponse, jsonbuffer);
   return httpd_resp_send(req, jsonbuffer, measureJson(jsonresponse));
 }
@@ -564,7 +574,7 @@ static esp_err_t winter_mode_handler()
   int ikinci_mod = node.getResponseBuffer(node.readHoldingRegisters(IKINCI_MOD, 1));
 
   Serial.printf("ileri:%d geri:%d gecikme:%d kis:%d 1.:%d 2.:%d\n", ileri_sure, geri_sure,
-               gecikme, kis_modu_aktif, birinci_mod, ikinci_mod);
+                gecikme, kis_modu_aktif, birinci_mod, ikinci_mod);
   return ESP_OK;
 }
 
@@ -585,7 +595,6 @@ static void readAlarms()
   {
     Serial.println("Alarm read error");
   }
-  // Serial.println();
 }
 
 static void readAlarmStatus()
@@ -605,15 +614,6 @@ static void readAlarmStatus()
   }
   Serial.println("");
 }
-
-// esp_err_t error_handler(httpd_req_t *req, httpd_err_code_t err)
-// {
-//     httpd_resp_set_status(req, "302 Temporary Redirect");
-//     httpd_resp_set_hdr(req, "Location", "/");
-//     httpd_resp_send(req, "Redirect to the captive portal", HTTPD_RESP_USE_STRLEN);
-//     // ESP_LOGI(TAG, "Redirecting to root");
-//     return ESP_OK;
-// }
 
 esp_err_t startServer(const char *base_path)
 {
@@ -688,6 +688,18 @@ esp_err_t startServer(const char *base_path)
       .handler = save_handler,
       .user_ctx = NULL};
 
+  httpd_uri_t winter_mode_uri = {
+      .uri = "/wintermode",
+      .method = HTTP_POST,
+      .handler = winter_mode_handler,
+      .user_ctx = NULL};
+
+  httpd_uri_t winter_status_uri = {
+      .uri = "/winterstatus",
+      .method = HTTP_GET,
+      .handler = winter_status_handler,
+      .user_ctx = NULL};
+
   httpd_uri_t file_serve = {
       .uri = "/data/*",
       .method = HTTP_GET,
@@ -705,7 +717,8 @@ esp_err_t startServer(const char *base_path)
     httpd_register_uri_handler(gubre_siyirma, &geri_uri);
     httpd_register_uri_handler(gubre_siyirma, &get_times_uri);
     httpd_register_uri_handler(gubre_siyirma, &manual_mod_uri);
-    // httpd_register_err_handler(gubre_siyirma, HTTPD_404_NOT_FOUND, error_handler);
+    httpd_register_uri_handler(gubre_siyirma, &winter_mode_uri);
+    httpd_register_uri_handler(gubre_siyirma, &winter_status_uri);
   }
   return ESP_OK;
 }
