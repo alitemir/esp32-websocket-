@@ -27,7 +27,7 @@
 const char *ap_pwd = "12345678";
 
 const char *hotspot_ssid = "mustafa_ali_can";
-const char *mdns_host = "gubresiyirma";
+const char *mdns_host = "ican";
 const char *base_path = "/data";
 
 httpd_handle_t gubre_siyirma = NULL;
