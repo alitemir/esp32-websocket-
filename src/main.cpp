@@ -9,6 +9,7 @@
 #include <nvs_flash.h>
 #include <esp_spiffs.h>
 #include "main.h"
+#include "max6675.h"
 
 // TODO
 // allocation islemlerini calloc ile yap statik bufferlari sil.
@@ -36,6 +37,11 @@ ModbusMaster node;
 // SoftwareSerial ss(SERIAL1_RX, SERIAL1_TX);
 uint8_t mac[6];
 char softap_mac[18] = {0};
+
+int thermoDO = 19;
+int thermoCS = 5;
+int thermoCLK = 18;
+MAX6675 thermocouple(thermoCLK, thermoCS, thermoDO);
 
 static esp_err_t tur_ileri_handler(httpd_req_t *req)
 {
@@ -241,6 +247,16 @@ static esp_err_t winter_status_handler(httpd_req_t *req)
   jsonresponse["wintermode"] = 1;
   jsonresponse["firstmode"] = node.getResponseBuffer(node.readHoldingRegisters(BIRINCI_MOD, 1));
   jsonresponse["secondmode"] = node.getResponseBuffer(node.readHoldingRegisters(IKINCI_MOD, 1));
+  serializeJson(jsonresponse, jsonbuffer);
+  return httpd_resp_send(req, jsonbuffer, measureJson(jsonresponse));
+  return ESP_OK;
+}
+
+static esp_err_t temp_status_handler(httpd_req_t *req)
+{
+  char jsonbuffer[100];
+  StaticJsonDocument<50> jsonresponse;
+  jsonresponse["temp"] = thermocouple.readCelsius();
   serializeJson(jsonresponse, jsonbuffer);
   return httpd_resp_send(req, jsonbuffer, measureJson(jsonresponse));
   return ESP_OK;
@@ -700,6 +716,12 @@ esp_err_t startServer(const char *base_path)
       .handler = winter_status_handler,
       .user_ctx = NULL};
 
+  httpd_uri_t temp_status_uri = {
+      .uri = "/temp",
+      .method = HTTP_GET,
+      .handler = temp_status_handler,
+      .user_ctx = NULL};
+
   httpd_uri_t file_serve = {
       .uri = "/data/*",
       .method = HTTP_GET,
@@ -719,6 +741,7 @@ esp_err_t startServer(const char *base_path)
     httpd_register_uri_handler(gubre_siyirma, &manual_mod_uri);
     httpd_register_uri_handler(gubre_siyirma, &winter_mode_uri);
     httpd_register_uri_handler(gubre_siyirma, &winter_status_uri);
+    httpd_register_uri_handler(gubre_siyirma, &temp_status_uri);
   }
   return ESP_OK;
 }
@@ -782,6 +805,8 @@ void setup()
   //   WiFi.onEvent(WiFiStationDisconnected, WiFiEvent_t::ARDUINO_EVENT_WIFI_AP_STADISCONNECTED);
   // #endif
 
+  Serial.println("MAX6675 test");
+
   pinMode(MAX485_RE_NEG, OUTPUT);
   pinMode(MAX485_DE, OUTPUT);
   digitalWrite(MAX485_RE_NEG, 0);
@@ -793,10 +818,10 @@ void setup()
   // ss.begin(115200);
 
   Serial.setDebugOutput(true);
-  node.begin(2, Serial1);
-  node.preTransmission(preTransmission);
-  node.postTransmission(postTransmission);
-  Serial.println("");
+  // node.begin(2, Serial1);
+  // node.preTransmission(preTransmission);
+  // node.postTransmission(postTransmission);
+  // Serial.println("");
   WiFi.mode(WIFI_AP_STA);
   esp_wifi_get_mac(WIFI_IF_STA, mac);
   sprintf(softap_mac, "%s_%02X%02X", mdns_host, mac[4], mac[5]);
@@ -825,12 +850,13 @@ void setup()
   mdns_instance_name_set(softap_mac);
 
   mdns_service_add("GubreSiyirmaWebServer", "_http", "_tcp", 80, NULL, 0);
-  readAlarms();
-  readAlarmStatus();
-  winter_mode_handler();
+  // readAlarms();
+  // readAlarmStatus();
+  // winter_mode_handler();
   mount_storage(base_path);
   nvs_flash_init();
   startServer("");
+  // wait for MAX chip to stabilize
 }
 
 void loop()
