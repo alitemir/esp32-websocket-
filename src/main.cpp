@@ -26,6 +26,8 @@
 // AP Modu ayarları
 // const char *ap_ssid = "GubreSiyirma";
 
+// sicaklik gonderilecek
+// 
 const char *ap_pwd = "12345678";
 
 const char *hotspot_ssid = "mustafa_ali_can";
@@ -861,4 +863,8 @@ void setup()
 
 void loop()
 {
+  int temp = (int)thermocouple.readCelsius()*10;
+  node.writeSingleRegister(TEMPERATURE,temp);
+  Serial.printf("Temperature: %d\n", temp);
+  delay(500);
 }
