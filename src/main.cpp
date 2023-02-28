@@ -31,7 +31,7 @@ const char *ap_pwd = "12345678";
 const char *hotspot_ssid = "mustafa_ali_can";
 const char *mdns_host = "ican";
 const char *base_path = "/data";
-
+const char *TAG = "test";
 httpd_handle_t gubre_siyirma = NULL;
 ModbusMaster node;
 // SoftwareSerial ss(SERIAL1_RX, SERIAL1_TX);
@@ -798,7 +798,7 @@ void setup()
   // WiFi.onEvent(WiFiStationConnected, WiFiEvent_t::SYSTEM_EVENT_STA_DISCONNECTED);
   // WiFi.onEvent(WiFiGotIP, WiFiEvent_t::SYSTEM_EVENT_GOT_IP6);
   // WiFi.onEvent(WiFiStationDisconnected, WiFiEvent_t::SYSTEM_EVENT_STA_DISCONNECTED);
-  WiFi.onEvent(Wifi_AP_Disconnected, WiFiEvent_t::SYSTEM_EVENT_AP_STADISCONNECTED);
+  WiFi.onEvent(Wifi_AP_Disconnected, WiFiEvent_t::ARDUINO_EVENT_WIFI_AP_STADISCONNECTED);
   // #else
   //   WiFi.onEvent(WiFiStationConnected, WiFiEvent_t::ARDUINO_EVENT_WIFI_STA_DISCONNECTED);
   //   WiFi.onEvent(WiFiGotIP, WiFiEvent_t::ARDUINO_EVENT_WIFI_STA_GOT_IP);
@@ -818,9 +818,9 @@ void setup()
   // ss.begin(115200);
 
   Serial.setDebugOutput(true);
-  // node.begin(2, Serial1);
-  // node.preTransmission(preTransmission);
-  // node.postTransmission(postTransmission);
+  node.begin(2, Serial1);
+  node.preTransmission(preTransmission);
+  node.postTransmission(postTransmission);
   // Serial.println("");
   WiFi.mode(WIFI_AP_STA);
   esp_wifi_get_mac(WIFI_IF_STA, mac);
@@ -850,9 +850,9 @@ void setup()
   mdns_instance_name_set(softap_mac);
 
   mdns_service_add("GubreSiyirmaWebServer", "_http", "_tcp", 80, NULL, 0);
-  // readAlarms();
-  // readAlarmStatus();
-  // winter_mode_handler();
+  readAlarms();
+  readAlarmStatus();
+  winter_mode_handler();
   mount_storage(base_path);
   nvs_flash_init();
   startServer("");
