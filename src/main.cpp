@@ -34,7 +34,7 @@ const char *mdns_host = "ican";
 const char *mdns_host_uppercase = "I-CAN";
 
 const char *base_path = "/data";
-const char *TAG = "test";
+const char *TAG = "MAIN";
 httpd_handle_t gubre_siyirma = NULL;
 ModbusMaster node;
 // SoftwareSerial ss(SERIAL1_RX, SERIAL1_TX);
@@ -809,8 +809,6 @@ void setup()
   //   WiFi.onEvent(WiFiStationDisconnected, WiFiEvent_t::ARDUINO_EVENT_WIFI_AP_STADISCONNECTED);
   // #endif
 
-  Serial.println("MAX6675 test");
-
   pinMode(MAX485_RE_NEG, OUTPUT);
   pinMode(MAX485_DE, OUTPUT);
   digitalWrite(MAX485_RE_NEG, 0);
@@ -849,9 +847,9 @@ void setup()
   // Serial.println("WiFi connected");
 
   mdns_init();
-  mdns_hostname_set(softap_mac);
-  Serial.printf("mdns hostname is set to: http://%s.local\n", softap_mac);
-  mdns_instance_name_set(softap_mac);
+  mdns_hostname_set(mdns_host);
+  Serial.printf("mdns hostname is set to: http://%s.local\n", mdns_host);
+  mdns_instance_name_set(mdns_host);
 
   mdns_service_add("GubreSiyirmaWebServer", "_http", "_tcp", 80, NULL, 0);
   readAlarms();
