@@ -245,11 +245,16 @@ static esp_err_t download_handler(httpd_req_t *req)
 
 static esp_err_t winter_status_handler(httpd_req_t *req)
 {
-  char jsonbuffer[100];
-  StaticJsonDocument<50> jsonresponse;
-  jsonresponse["wintermode"] = 1;
-  jsonresponse["firstmode"] = node.getResponseBuffer(node.readHoldingRegisters(BIRINCI_MOD, 1));
-  jsonresponse["secondmode"] = node.getResponseBuffer(node.readHoldingRegisters(IKINCI_MOD, 1));
+  char jsonbuffer[200];
+  StaticJsonDocument<100> jsonresponse;
+  jsonresponse["kismodu"] = node.getResponseBuffer(node.readHoldingRegisters(KIS_MODU_AKTIF, 1));
+  jsonresponse["birinci"] = node.getResponseBuffer(node.readHoldingRegisters(BIRINCI_MOD, 1));
+  jsonresponse["ikinci"] = node.getResponseBuffer(node.readHoldingRegisters(IKINCI_MOD, 1));
+
+  jsonresponse["ileri"] = node.getResponseBuffer(node.readHoldingRegisters(ILERI_SURE, 1));
+  jsonresponse["geri"] = node.getResponseBuffer(node.readHoldingRegisters(GERI_SURE, 1));
+  jsonresponse["gecikme"] = node.getResponseBuffer(node.readHoldingRegisters(GECIKME, 1));
+
   serializeJson(jsonresponse, jsonbuffer);
   return httpd_resp_send(req, jsonbuffer, measureJson(jsonresponse));
   return ESP_OK;
@@ -272,48 +277,45 @@ static esp_err_t status_handler(httpd_req_t *req)
   jsonresponse["amp"] = (float)node.getResponseBuffer(node.readHoldingRegisters(CURRENT, 1)) / 10.0;
   jsonresponse["volt"] = (float)node.getResponseBuffer(node.readHoldingRegisters(VOLTAGE, 1)) / 10.0;
   int d = node.getResponseBuffer(node.readHoldingRegisters(DURUM, 1));
-    String status = "";
- switch (d)
+  switch (d)
   {
   case 0:
-    jsonresponse["status"] = "Robot Takıldı.";
+    jsonresponse["status"] = "Durum: Robot Takıldı.";
     break;
   case 1:
-    jsonresponse["status"] = "İleri Turda";
+    jsonresponse["status"] = "Durum: İleri Turda";
     break;
   case 2:
-    jsonresponse["status"] = "Şarjda";
+    jsonresponse["status"] = "Durum: Şarjda";
     break;
   case 3:
-    jsonresponse["status"] = "Geri Turda.";
+    jsonresponse["status"] = "Durum: Geri Turda.";
     break;
   case 4:
-    jsonresponse["status"] = "Acil Stop Basılı.";
+    jsonresponse["status"] = "Durum: Acil Stop Basılı.";
     break;
   case 5:
-    jsonresponse["status"] = "Yön Switch Basılı.";
+    jsonresponse["status"] = "Durum: Yön Switch Basılı.";
     break;
   case 6:
-    jsonresponse["status"] = "Robot Şarj Etmiyor.";
+    jsonresponse["status"] = "Durum: Robot Şarj Etmiyor.";
     break;
   case 7:
-    jsonresponse["status"] = "Manuel İleri";
+    jsonresponse["status"] = "Durum: Manuel İleri";
     break;
   case 8:
-    jsonresponse["status"] = "Manuel Geri";
+    jsonresponse["status"] = "Durum: Manuel Geri";
     break;
   case 9:
-    jsonresponse["status"] = "Hata!";
+    jsonresponse["status"] = "Durum: Hata!";
     break;
   case 10:
-    jsonresponse["status"] = "Şarj Switchi Takılı";
+    jsonresponse["status"] = "Durum: Şarj Switchi Takılı";
     break;
   default:
-    // Serial.printf("status: %d\n", d);
-    jsonresponse["status"] = "HATA";
+    jsonresponse["status"] = "Durum: HATA";
     break;
   }
-  jsonresponse["status"] = status;
   serializeJson(jsonresponse, jsonbuffer);
   return httpd_resp_send(req, jsonbuffer, measureJson(jsonresponse));
 }
@@ -468,10 +470,10 @@ static esp_err_t manual_mode_handler(httpd_req_t *req)
   buf_len = httpd_req_get_url_query_len(req) + 1;
 
   char sure_buf[3] = {0};
-  char ilerisurme_buf[3] = {0};
+  char ileri_sure_buf[3] = {0};
   char gecikme_buf[3] = {0};
   int sure = 0;
-  int ilerisurme = 0;
+  int ileri_sure = 0;
   int gecikme = 0;
 
   if (buf_len > 1)
@@ -483,19 +485,19 @@ static esp_err_t manual_mode_handler(httpd_req_t *req)
         sure = strtol(sure_buf, &remaining, 10);
       }
 
-      if (httpd_query_key_value(buffer, "ilerisurme", ilerisurme_buf, sizeof(buffer)) == ESP_OK)
+      if (httpd_query_key_value(buffer, "ilerisure", ileri_sure_buf, sizeof(buffer)) == ESP_OK)
       {
-        ilerisurme = strtol(ilerisurme_buf, &remaining, 10);
+        ileri_sure = strtol(ileri_sure_buf, &remaining, 10);
       }
       if (httpd_query_key_value(buffer, "gecikme", gecikme_buf, sizeof(buffer)) == ESP_OK)
       {
         gecikme = strtol(gecikme_buf, &remaining, 10);
       }
-      if (sure && gecikme && ilerisurme)
+      if (sure && gecikme && ileri_sure)
       {
-        Serial.printf("sure:%d ilerisurme:%d gecikme:%d\n", sure, ilerisurme, gecikme);
+        Serial.printf("sure:%d ileri_sure:%d gecikme:%d\n", sure, ileri_sure, gecikme);
         node.writeSingleRegister(GERI_SURE, sure);
-        node.writeSingleRegister(ILERI_SURE, ilerisurme);
+        node.writeSingleRegister(ILERI_SURE, ileri_sure);
         node.writeSingleRegister(GECIKME, gecikme);
         httpd_resp_send(req, "OK", HTTPD_RESP_USE_STRLEN);
         return ESP_OK;
