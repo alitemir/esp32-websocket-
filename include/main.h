@@ -6,7 +6,7 @@
 #define LED_PIN 2
 #define MAX485_DE 22
 #define MAX485_RE_NEG 23
-#define SERIAL1_RX 16
+#define SERIAL1_RX 5
 #define SERIAL1_TX 17
 
 // Uzaktan kontrol PLC adresleri

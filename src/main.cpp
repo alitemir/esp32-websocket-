@@ -15,7 +15,6 @@
 // allocation islemlerini calloc ile yap statik bufferlari sil.
 // html tarafinda sureleri limitle (3 basamak max)
 // dosyalari islere gore ayir
-// wifi ismi i-can olacak
 
 // #include <SoftwareSerial.h>
 
@@ -27,11 +26,13 @@
 // const char *ap_ssid = "GubreSiyirma";
 
 // sicaklik gonderilecek
-// 
+// kis modu okunacak
 const char *ap_pwd = "12345678";
 
 const char *hotspot_ssid = "mustafa_ali_can";
 const char *mdns_host = "ican";
+const char *mdns_host_uppercase = "I-CAN";
+
 const char *base_path = "/data";
 const char *TAG = "test";
 httpd_handle_t gubre_siyirma = NULL;
@@ -41,7 +42,7 @@ uint8_t mac[6];
 char softap_mac[18] = {0};
 
 int thermoDO = 19;
-int thermoCS = 5;
+int thermoCS = 21;
 int thermoCLK = 18;
 MAX6675 thermocouple(thermoCLK, thermoCS, thermoDO);
 
@@ -271,47 +272,49 @@ static esp_err_t status_handler(httpd_req_t *req)
   jsonresponse["amp"] = (float)node.getResponseBuffer(node.readHoldingRegisters(CURRENT, 1)) / 10.0;
   jsonresponse["volt"] = (float)node.getResponseBuffer(node.readHoldingRegisters(VOLTAGE, 1)) / 10.0;
   int d = node.getResponseBuffer(node.readHoldingRegisters(DURUM, 1));
+  String status = "";
   switch (d)
   {
   case 0:
-    jsonresponse["status"] = "Robot Takıldı.";
+    status = "Robot Takıldı.";
     break;
   case 1:
-    jsonresponse["status"] = "İleri Turda";
+    status = "İleri Turda";
     break;
   case 2:
-    jsonresponse["status"] = "Şarjda";
+    status = "Şarjda";
     break;
   case 3:
-    jsonresponse["status"] = "Geri Turda.";
+    status = "Geri Turda.";
     break;
   case 4:
-    jsonresponse["status"] = "Acil Stop Basılı.";
+    status = "Acil Stop Basılı.";
     break;
   case 5:
-    jsonresponse["status"] = "Yön Switch Basılı.";
+    status = "Yön Switch Basılı.";
     break;
   case 6:
-    jsonresponse["status"] = "Robot Şarj Etmiyor.";
+    status = "Robot Şarj Etmiyor.";
     break;
   case 7:
-    jsonresponse["status"] = "Manuel İleri";
+    status = "Manuel İleri";
     break;
   case 8:
-    jsonresponse["status"] = "Manuel Geri";
+    status = "Manuel Geri";
     break;
   case 9:
-    jsonresponse["status"] = "Hata!";
+    status = "Hata!";
     break;
   case 10:
-    jsonresponse["status"] = "Şarj Switchi Takılı";
+    status = "Şarj Switchi Takılı";
     break;
   default:
     // Serial.printf("status: %d\n", d);
-    jsonresponse["status"] = "HATA";
+    status = "HATA";
     break;
   }
 
+  jsonresponse["status"] = status;
   serializeJson(jsonresponse, jsonbuffer);
   return httpd_resp_send(req, jsonbuffer, measureJson(jsonresponse));
 }
@@ -826,8 +829,8 @@ void setup()
   // Serial.println("");
   WiFi.mode(WIFI_AP_STA);
   esp_wifi_get_mac(WIFI_IF_STA, mac);
-  sprintf(softap_mac, "%s_%02X%02X", mdns_host, mac[4], mac[5]);
-  WiFi.softAP(softap_mac, ap_pwd);
+  // sprintf(softap_mac, "%s_%02X%02X", mdns_host, mac[4], mac[5]);
+  WiFi.softAP(mdns_host_uppercase, ap_pwd);
 
   // WiFi.begin(ssid, password);
   WiFi.setHostname(mdns_host);
@@ -863,8 +866,8 @@ void setup()
 
 void loop()
 {
-  int temp = (int)thermocouple.readCelsius()*10;
-  node.writeSingleRegister(TEMPERATURE,temp);
+  int temp = (int)(thermocouple.readCelsius() * 10);
+  node.writeSingleRegister(TEMPERATURE, temp);
   Serial.printf("Temperature: %d\n", temp);
   delay(500);
 }
