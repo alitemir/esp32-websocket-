@@ -272,48 +272,47 @@ static esp_err_t status_handler(httpd_req_t *req)
   jsonresponse["amp"] = (float)node.getResponseBuffer(node.readHoldingRegisters(CURRENT, 1)) / 10.0;
   jsonresponse["volt"] = (float)node.getResponseBuffer(node.readHoldingRegisters(VOLTAGE, 1)) / 10.0;
   int d = node.getResponseBuffer(node.readHoldingRegisters(DURUM, 1));
-  String status = "";
-  switch (d)
+    String status = "";
+ switch (d)
   {
   case 0:
-    status = "Robot Takıldı.";
+    jsonresponse["status"] = "Robot Takıldı.";
     break;
   case 1:
-    status = "İleri Turda";
+    jsonresponse["status"] = "İleri Turda";
     break;
   case 2:
-    status = "Şarjda";
+    jsonresponse["status"] = "Şarjda";
     break;
   case 3:
-    status = "Geri Turda.";
+    jsonresponse["status"] = "Geri Turda.";
     break;
   case 4:
-    status = "Acil Stop Basılı.";
+    jsonresponse["status"] = "Acil Stop Basılı.";
     break;
   case 5:
-    status = "Yön Switch Basılı.";
+    jsonresponse["status"] = "Yön Switch Basılı.";
     break;
   case 6:
-    status = "Robot Şarj Etmiyor.";
+    jsonresponse["status"] = "Robot Şarj Etmiyor.";
     break;
   case 7:
-    status = "Manuel İleri";
+    jsonresponse["status"] = "Manuel İleri";
     break;
   case 8:
-    status = "Manuel Geri";
+    jsonresponse["status"] = "Manuel Geri";
     break;
   case 9:
-    status = "Hata!";
+    jsonresponse["status"] = "Hata!";
     break;
   case 10:
-    status = "Şarj Switchi Takılı";
+    jsonresponse["status"] = "Şarj Switchi Takılı";
     break;
   default:
     // Serial.printf("status: %d\n", d);
-    status = "HATA";
+    jsonresponse["status"] = "HATA";
     break;
   }
-
   jsonresponse["status"] = status;
   serializeJson(jsonresponse, jsonbuffer);
   return httpd_resp_send(req, jsonbuffer, measureJson(jsonresponse));
