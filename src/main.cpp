@@ -828,6 +828,7 @@ void setup()
   node.postTransmission(postTransmission);
   // Serial.println("");
   WiFi.mode(WIFI_AP_STA);
+  WiFi.setTxPower(WIFI_POWER_19_5dBm);
   esp_wifi_get_mac(WIFI_IF_STA, mac);
   // sprintf(softap_mac, "%s_%02X%02X", mdns_host, mac[4], mac[5]);
   WiFi.softAP(mdns_host_uppercase, ap_pwd);
