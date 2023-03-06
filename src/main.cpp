@@ -280,40 +280,41 @@ static esp_err_t status_handler(httpd_req_t *req)
   switch (d)
   {
   case 0:
-    jsonresponse["status"] = "Durum: Robot Takıldı.";
+    jsonresponse["status"] = "Robot Takıldı.";
     break;
   case 1:
-    jsonresponse["status"] = "Durum: İleri Turda";
+    jsonresponse["status"] = "İleri Turda";
     break;
   case 2:
-    jsonresponse["status"] = "Durum: Şarjda";
+    jsonresponse["status"] = "Şarjda";
     break;
   case 3:
-    jsonresponse["status"] = "Durum: Geri Turda.";
+    jsonresponse["status"] = "Geri Turda.";
     break;
   case 4:
-    jsonresponse["status"] = "Durum: Acil Stop Basılı.";
+    jsonresponse["status"] = "Acil Stop Basılı.";
     break;
   case 5:
-    jsonresponse["status"] = "Durum: Yön Switch Basılı.";
+    jsonresponse["status"] = "Yön Switch Basılı.";
     break;
   case 6:
-    jsonresponse["status"] = "Durum: Robot Şarj Etmiyor.";
+    jsonresponse["status"] = "Robot Şarj Etmiyor.";
     break;
   case 7:
-    jsonresponse["status"] = "Durum: Manuel İleri";
+    jsonresponse["status"] = "Manuel İleri";
     break;
   case 8:
-    jsonresponse["status"] = "Durum: Manuel Geri";
+    jsonresponse["status"] = "Manuel Geri";
     break;
   case 9:
-    jsonresponse["status"] = "Durum: Hata!";
+    jsonresponse["status"] = "Hata!";
     break;
   case 10:
-    jsonresponse["status"] = "Durum: Şarj Switchi Takılı";
+    jsonresponse["status"] = "Şarj Switchi Takılı";
+    jsonresponse["status_code"] = "10";
     break;
   default:
-    jsonresponse["status"] = "Durum: HATA";
+    jsonresponse["status"] = "HATA";
     break;
   }
   serializeJson(jsonresponse, jsonbuffer);
