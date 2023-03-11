@@ -11,40 +11,19 @@
 #include "main.h"
 #include "max6675.h"
 
-// TODO
-// allocation islemlerini calloc ile yap statik bufferlari sil.
-// html tarafinda sureleri limitle (3 basamak max)
-// dosyalari islere gore ayir
-
-// #include <SoftwareSerial.h>
-
-// STA Modu ayarları
-// const char *ssid = "VR_Ozel_Ag";
-// const char *password = "12345678";
-
-// AP Modu ayarları
-// const char *ap_ssid = "GubreSiyirma";
-
-// sicaklik gonderilecek
-// kis modu okunacak
 const char *ap_pwd = "12345678";
-
 const char *hotspot_ssid = "mustafa_ali_can";
-const char *mdns_host = "ican";
-const char *mdns_host_uppercase = "I-CAN";
-
+const char *mdns_host = "ican4";
+const char *mdns_host_uppercase = "I-CAN_4";
 const char *base_path = "/data";
 const char *TAG = "MAIN";
+
 httpd_handle_t gubre_siyirma = NULL;
 ModbusMaster node;
-// SoftwareSerial ss(SERIAL1_RX, SERIAL1_TX);
 uint8_t mac[6];
 char softap_mac[18] = {0};
 
-int thermoDO = 19;
-int thermoCS = 21;
-int thermoCLK = 18;
-MAX6675 thermocouple(thermoCLK, thermoCS, thermoDO);
+MAX6675 thermocouple(thermoCLK, thermoCS, thermoSO);
 
 static esp_err_t tur_ileri_handler(httpd_req_t *req)
 {
@@ -124,7 +103,7 @@ static esp_err_t set_content_type_from_file(httpd_req_t *req, const char *filena
   return httpd_resp_set_type(req, "text/plain");
 }
 
-esp_err_t mount_storage(const char *base_path)
+static esp_err_t mount_storage(const char *base_path)
 {
   ESP_LOGI(TAG, "Initializing SPIFFS");
 
@@ -280,41 +259,52 @@ static esp_err_t status_handler(httpd_req_t *req)
   switch (d)
   {
   case 0:
-    jsonresponse["status"] = "Robot Takıldı.";
+    jsonresponse["status"] = "Durum: Robot Takıldı.";
+    jsonresponse["status_code"] = "0";
     break;
   case 1:
-    jsonresponse["status"] = "İleri Turda";
+    jsonresponse["status"] = "Durum: İleri Turda";
+    jsonresponse["status_code"] = "1";
     break;
   case 2:
-    jsonresponse["status"] = "Şarjda";
+    jsonresponse["status"] = "Durum: Şarjda";
+    jsonresponse["status_code"] = "2";
     break;
   case 3:
-    jsonresponse["status"] = "Geri Turda.";
+    jsonresponse["status"] = "Durum: Geri Turda.";
+    jsonresponse["status_code"] = "3";
     break;
   case 4:
-    jsonresponse["status"] = "Acil Stop Basılı.";
+    jsonresponse["status"] = "Durum: Acil Stop Basılı.";
+    jsonresponse["status_code"] = "4";
     break;
   case 5:
-    jsonresponse["status"] = "Yön Switch Basılı.";
+    jsonresponse["status"] = "Durum: Yön Switch Basılı.";
+    jsonresponse["status_code"] = "5";
     break;
   case 6:
-    jsonresponse["status"] = "Robot Şarj Etmiyor.";
+    jsonresponse["status"] = "Durum: Robot Şarj Etmiyor.";
+    jsonresponse["status_code"] = "6";
     break;
   case 7:
-    jsonresponse["status"] = "Manuel İleri";
+    jsonresponse["status"] = "Durum: Manuel İleri";
+    jsonresponse["status_code"] = "7";
     break;
   case 8:
-    jsonresponse["status"] = "Manuel Geri";
+    jsonresponse["status"] = "Durum: Manuel Geri";
+    jsonresponse["status_code"] = "8";
     break;
   case 9:
-    jsonresponse["status"] = "Hata!";
+    jsonresponse["status"] = "Durum: Hata!";
+    jsonresponse["status_code"] = "9";
     break;
   case 10:
-    jsonresponse["status"] = "Şarj Switchi Takılı";
+    jsonresponse["status"] = "Durum: Şarj Switchi Takılı";
     jsonresponse["status_code"] = "10";
     break;
   default:
     jsonresponse["status"] = "HATA";
+    jsonresponse["status_code"] = "-1";
     break;
   }
   serializeJson(jsonresponse, jsonbuffer);
@@ -428,32 +418,42 @@ static esp_err_t winter_mode_handler(httpd_req_t *req)
   char *remaining;
   buf_len = httpd_req_get_url_query_len(req) + 1;
 
-  char mode_buf[3] = {0};
+  char wintermode_buf[3] = {0};
+  char mode1_buf[3] = {0};
+  char mode2_buf[3] = {0};
 
   int firstmode = 0;
   int secondmode = 0;
+  bool wintermode = false;
 
   if (buf_len > 1)
   {
     if (httpd_req_get_url_query_str(req, buffer, buf_len) == ESP_OK)
     {
-      if (httpd_query_key_value(buffer, "mode1", mode_buf, sizeof(buffer)) == ESP_OK)
+      if (httpd_query_key_value(buffer, "winter", wintermode_buf, sizeof(buffer)) == ESP_OK)
       {
-        firstmode = strtol(mode_buf, &remaining, 10);
+        int w = strtol(wintermode_buf, &remaining, 10);
+        wintermode = w ? 1 : 0;
+        node.writeSingleRegister(KIS_MODU_AKTIF, wintermode);
+        Serial.printf("winter mode:%d\n", wintermode);
+      }
+      if (httpd_query_key_value(buffer, "mode1", mode1_buf, sizeof(buffer)) == ESP_OK)
+      {
+        firstmode = strtol(mode1_buf, &remaining, 10);
         node.writeSingleRegister(BIRINCI_MOD, firstmode);
         Serial.printf("first mode:%d\n", firstmode);
-        httpd_resp_send(req, "OK", HTTPD_RESP_USE_STRLEN);
-        return ESP_OK;
       }
-      if (httpd_query_key_value(buffer, "mode2", mode_buf, sizeof(buffer)) == ESP_OK)
+      if (httpd_query_key_value(buffer, "mode2", mode2_buf, sizeof(buffer)) == ESP_OK)
       {
-        secondmode = strtol(mode_buf, &remaining, 10);
+        secondmode = strtol(mode2_buf, &remaining, 10);
         node.writeSingleRegister(IKINCI_MOD, secondmode);
         Serial.printf("second mode:%d\n", secondmode);
-        httpd_resp_send(req, "OK", HTTPD_RESP_USE_STRLEN);
-        return ESP_OK;
       }
+      httpd_resp_send(req, "OK", HTTPD_RESP_USE_STRLEN);
+      return ESP_OK;
     }
+    httpd_resp_send_404(req);
+    return ESP_FAIL;
   }
   httpd_resp_send_404(req);
   return ESP_FAIL;
@@ -494,15 +494,15 @@ static esp_err_t manual_mode_handler(httpd_req_t *req)
       {
         gecikme = strtol(gecikme_buf, &remaining, 10);
       }
-      if (sure && gecikme && ileri_sure)
-      {
-        Serial.printf("sure:%d ileri_sure:%d gecikme:%d\n", sure, ileri_sure, gecikme);
-        node.writeSingleRegister(GERI_SURE, sure);
-        node.writeSingleRegister(ILERI_SURE, ileri_sure);
-        node.writeSingleRegister(GECIKME, gecikme);
-        httpd_resp_send(req, "OK", HTTPD_RESP_USE_STRLEN);
-        return ESP_OK;
-      }
+      // if (sure && gecikme && ileri_sure)
+      //{
+      Serial.printf("sure:%d ileri_sure:%d gecikme:%d\n", sure, ileri_sure, gecikme);
+      node.writeSingleRegister(GERI_SURE, sure);
+      node.writeSingleRegister(ILERI_SURE, ileri_sure);
+      node.writeSingleRegister(GECIKME, gecikme);
+      httpd_resp_send(req, "OK", HTTPD_RESP_USE_STRLEN);
+      return ESP_OK;
+      //}
     }
     httpd_resp_send_404(req);
     return ESP_FAIL;
@@ -586,7 +586,7 @@ static esp_err_t get_times_handler(httpd_req_t *req)
   return httpd_resp_send(req, jsonbuffer, measureJson(jsonresponse));
 }
 
-static esp_err_t winter_mode_handler()
+static esp_err_t winter_mode_read()
 {
   Serial.println("winter mode handler");
   int ileri_sure = node.getResponseBuffer(node.readHoldingRegisters(ILERI_SURE, 1));
@@ -858,7 +858,7 @@ void setup()
   mdns_service_add("GubreSiyirmaWebServer", "_http", "_tcp", 80, NULL, 0);
   readAlarms();
   readAlarmStatus();
-  winter_mode_handler();
+  winter_mode_read();
   mount_storage(base_path);
   nvs_flash_init();
   startServer("");

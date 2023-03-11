@@ -6,8 +6,14 @@
 #define LED_PIN 2
 #define MAX485_DE 22
 #define MAX485_RE_NEG 23
-#define SERIAL1_RX 16
+#define SERIAL1_RX 5
 #define SERIAL1_TX 17
+
+//thermocouple pinleri
+#define thermoSO  19
+#define thermoCS  21
+#define thermoCLK  18
+
 
 // Uzaktan kontrol PLC adresleri
 #define FORWARD_ADDRESS 0x8AA
@@ -46,7 +52,6 @@
 #define IKINCI_MOD 0x11B2
 
 #define TEMPERATURE 0x1028
-
 
 #define FILE_PATH_MAX (ESP_VFS_PATH_MAX + CONFIG_SPIFFS_OBJ_NAME_LEN)
 #define SCRATCH_BUFSIZE 4096
