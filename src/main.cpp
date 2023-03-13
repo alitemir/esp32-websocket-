@@ -10,6 +10,7 @@
 #include <esp_spiffs.h>
 #include "main.h"
 #include "max6675.h"
+#include "limits.h"
 
 const char *ap_pwd = "12345678";
 const char *hotspot_ssid = "mustafa_ali_can";
@@ -434,21 +435,47 @@ static esp_err_t winter_mode_handler(httpd_req_t *req)
       {
         int w = strtol(wintermode_buf, &remaining, 10);
         wintermode = w ? 1 : 0;
-        node.writeSingleRegister(KIS_MODU_AKTIF, wintermode);
-        Serial.printf("winter mode:%d\n", wintermode);
+        if (wintermode == 0 || wintermode == 1)
+        {
+          node.writeSingleRegister(KIS_MODU_AKTIF, wintermode);
+          Serial.printf("winter mode:%d\n", wintermode);
+        }
+        else // kış modu 1 veya 0 degilse 404 dön ve kaydetme.
+        {
+          httpd_resp_send_404(req);
+          return ESP_FAIL;
+        }
       }
       if (httpd_query_key_value(buffer, "mode1", mode1_buf, sizeof(buffer)) == ESP_OK)
       {
         firstmode = strtol(mode1_buf, &remaining, 10);
-        node.writeSingleRegister(BIRINCI_MOD, firstmode);
-        Serial.printf("first mode:%d\n", firstmode);
+        if (firstmode_l <= firstmode && firstmode <= firstmode_h)
+        {
+          node.writeSingleRegister(BIRINCI_MOD, firstmode);
+          Serial.printf("first mode:%d\n", firstmode);
+        }
+        else // firstmode limitleri disinda ise 404 dön
+        {
+          httpd_resp_send_404(req);
+          return ESP_FAIL;
+        }
       }
       if (httpd_query_key_value(buffer, "mode2", mode2_buf, sizeof(buffer)) == ESP_OK)
       {
         secondmode = strtol(mode2_buf, &remaining, 10);
-        node.writeSingleRegister(IKINCI_MOD, secondmode);
-        Serial.printf("second mode:%d\n", secondmode);
+        if (secondmode_l <= secondmode && secondmode <= secondmode_h)
+        {
+          node.writeSingleRegister(IKINCI_MOD, secondmode);
+          Serial.printf("second mode:%d\n", secondmode);
+        }
+
+        else // secondmode limitleri disinda ise
+        {
+          httpd_resp_send_404(req);
+          return ESP_FAIL;
+        }
       }
+
       httpd_resp_send(req, "OK", HTTPD_RESP_USE_STRLEN);
       return ESP_OK;
     }
@@ -494,15 +521,20 @@ static esp_err_t manual_mode_handler(httpd_req_t *req)
       {
         gecikme = strtol(gecikme_buf, &remaining, 10);
       }
-      // if (sure && gecikme && ileri_sure)
-      //{
       Serial.printf("sure:%d ileri_sure:%d gecikme:%d\n", sure, ileri_sure, gecikme);
-      node.writeSingleRegister(GERI_SURE, sure);
-      node.writeSingleRegister(ILERI_SURE, ileri_sure);
-      node.writeSingleRegister(GECIKME, gecikme);
-      httpd_resp_send(req, "OK", HTTPD_RESP_USE_STRLEN);
-      return ESP_OK;
-      //}
+      if ((sure_l <= sure && sure <= sure_h) && (ileri_sure_l <= ileri_sure && ileri_sure <= ileri_sure_h) && gecikme_l <= gecikme && gecikme <= gecikme_h)
+      {
+        node.writeSingleRegister(GERI_SURE, sure);
+        node.writeSingleRegister(ILERI_SURE, ileri_sure);
+        node.writeSingleRegister(GECIKME, gecikme);
+        httpd_resp_send(req, "OK", HTTPD_RESP_USE_STRLEN);
+        return ESP_OK;
+      }
+      else // rakamlar limitler disinda
+      {
+        httpd_resp_send_404(req);
+        return ESP_FAIL;
+      }
     }
     httpd_resp_send_404(req);
     return ESP_FAIL;
