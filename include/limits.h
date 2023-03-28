@@ -1,10 +1,10 @@
 // Kış modu limitleri
 
-// wintermode bool değer
+// kış modu (bool)
 #define wintermode_l 0
 #define wintermode_h 1
 
-// first ve second mode derece değerleri
+// birinci ve ikinci mod derece değerleri
 #define firstmode_l -100
 #define firstmode_h 100
 

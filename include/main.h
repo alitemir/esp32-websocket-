@@ -2,6 +2,12 @@
 
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 
+// Renk Teması
+#define TEMA "#d900ff"
+// #define TEMA "#4dce11"
+// #define TEMA "#1418e6"
+// #define TEMA "#0db5e9"
+
 // Kullanilan pinler
 #define LED_PIN 2
 #define MAX485_DE 22
@@ -9,11 +15,10 @@
 #define SERIAL1_RX 5
 #define SERIAL1_TX 17
 
-//thermocouple pinleri
-#define thermoSO  19
-#define thermoCS  21
-#define thermoCLK  18
-
+// thermocouple pinleri
+#define thermoSO 19
+#define thermoCS 21
+#define thermoCLK 18
 
 // Uzaktan kontrol PLC adresleri
 #define FORWARD_ADDRESS 0x8AA
@@ -52,6 +57,12 @@
 #define IKINCI_MOD 0x11B2
 
 #define TEMPERATURE 0x1028
+
+// Saat Verileri
+#define CLOCKS_ENABLED 0x100E
+#define SANIYE 0x1521
+#define DAKIKA 0x1522
+#define SAAT 0x1523
 
 #define FILE_PATH_MAX (ESP_VFS_PATH_MAX + CONFIG_SPIFFS_OBJ_NAME_LEN)
 #define SCRATCH_BUFSIZE 4096

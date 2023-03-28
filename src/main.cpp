@@ -8,14 +8,15 @@
 #include <esp_log.h>
 #include <nvs_flash.h>
 #include <esp_spiffs.h>
+#include <DNSServer.h>
 #include "main.h"
-#include "max6675.h"
+#include <max6675.h>
 #include "limits.h"
 
 const char *ap_pwd = "12345678";
 const char *hotspot_ssid = "mustafa_ali_can";
-const char *mdns_host = "ican4";
-const char *mdns_host_uppercase = "I-CAN_4";
+const char *mdns_host = "ican2";
+const char *mdns_host_uppercase = "I-CAN_2";
 const char *base_path = "/data";
 const char *TAG = "MAIN";
 
@@ -23,7 +24,7 @@ httpd_handle_t gubre_siyirma = NULL;
 ModbusMaster node;
 uint8_t mac[6];
 char softap_mac[18] = {0};
-
+DNSServer dnsServer;
 MAX6675 thermocouple(thermoCLK, thermoCS, thermoSO);
 
 static esp_err_t tur_ileri_handler(httpd_req_t *req)
@@ -204,7 +205,7 @@ static esp_err_t download_handler(httpd_req_t *req)
       if (httpd_resp_send_chunk(req, chunk, chunksize) != ESP_OK)
       {
         fclose(fd);
-        ESP_LOGE(TAG, "File sending failed!");
+        ESP_LOGE(TAG, "File sending failed! - %c", filename);
         httpd_resp_sendstr_chunk(req, NULL);
         httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Failed to send file");
         return ESP_FAIL;
@@ -225,15 +226,17 @@ static esp_err_t download_handler(httpd_req_t *req)
 
 static esp_err_t winter_status_handler(httpd_req_t *req)
 {
-  char jsonbuffer[200];
-  StaticJsonDocument<100> jsonresponse;
+  char jsonbuffer[250];
+  StaticJsonDocument<150> jsonresponse;
   jsonresponse["kismodu"] = node.getResponseBuffer(node.readHoldingRegisters(KIS_MODU_AKTIF, 1));
   jsonresponse["birinci"] = node.getResponseBuffer(node.readHoldingRegisters(BIRINCI_MOD, 1));
   jsonresponse["ikinci"] = node.getResponseBuffer(node.readHoldingRegisters(IKINCI_MOD, 1));
-
   jsonresponse["ileri"] = node.getResponseBuffer(node.readHoldingRegisters(ILERI_SURE, 1));
   jsonresponse["geri"] = node.getResponseBuffer(node.readHoldingRegisters(GERI_SURE, 1));
   jsonresponse["gecikme"] = node.getResponseBuffer(node.readHoldingRegisters(GECIKME, 1));
+  jsonresponse["hr"] = node.getResponseBuffer(node.readHoldingRegisters(SAAT, 1));
+  jsonresponse["min"] = node.getResponseBuffer(node.readHoldingRegisters(DAKIKA, 1));
+  jsonresponse["clk_active"] = node.getResponseBuffer(node.readHoldingRegisters(CLOCKS_ENABLED, 1));
 
   serializeJson(jsonresponse, jsonbuffer);
   return httpd_resp_send(req, jsonbuffer, measureJson(jsonresponse));
@@ -252,60 +255,63 @@ static esp_err_t temp_status_handler(httpd_req_t *req)
 
 static esp_err_t status_handler(httpd_req_t *req)
 {
-  char jsonbuffer[100];
-  StaticJsonDocument<50> jsonresponse;
-  jsonresponse["amp"] = (float)node.getResponseBuffer(node.readHoldingRegisters(CURRENT, 1)) / 10.0;
-  jsonresponse["volt"] = (float)node.getResponseBuffer(node.readHoldingRegisters(VOLTAGE, 1)) / 10.0;
-  int d = node.getResponseBuffer(node.readHoldingRegisters(DURUM, 1));
+  char jsonbuffer[150];
+  StaticJsonDocument<100> jsonresponse;
+  jsonresponse["amp"] = 1.2;   // (float)node.getResponseBuffer(node.readHoldingRegisters(CURRENT, 1)) / 10.0;
+  jsonresponse["volt"] = 25.8; //(float)node.getResponseBuffer(node.readHoldingRegisters(VOLTAGE, 1)) / 10.0;
+  jsonresponse["sec"] = 45;    // node.getResponseBuffer(node.readHoldingRegisters(SANIYE, 1));
+  jsonresponse["min"] = 36;    // node.getResponseBuffer(node.readHoldingRegisters(DAKIKA, 1));
+  jsonresponse["hr"] = 12;     // node.getResponseBuffer(node.readHoldingRegisters(SAAT, 1));
+  int d = 5;                   // node.getResponseBuffer(node.readHoldingRegisters(DURUM, 1));
   switch (d)
   {
   case 0:
-    jsonresponse["status"] = "Durum: Robot Takıldı.";
+    // jsonresponse["status"] = "Durum: Robot Takıldı.";
     jsonresponse["status_code"] = "0";
     break;
   case 1:
-    jsonresponse["status"] = "Durum: İleri Turda";
+    // jsonresponse["status"] = "Durum: İleri Turda";
     jsonresponse["status_code"] = "1";
     break;
   case 2:
-    jsonresponse["status"] = "Durum: Şarjda";
+    // jsonresponse["status"] = "Durum: Şarjda";
     jsonresponse["status_code"] = "2";
     break;
   case 3:
-    jsonresponse["status"] = "Durum: Geri Turda.";
+    // jsonresponse["status"] = "Durum: Geri Turda.";
     jsonresponse["status_code"] = "3";
     break;
   case 4:
-    jsonresponse["status"] = "Durum: Acil Stop Basılı.";
+    // jsonresponse["status"] = "Durum: Acil Stop Basılı.";
     jsonresponse["status_code"] = "4";
     break;
   case 5:
-    jsonresponse["status"] = "Durum: Yön Switch Basılı.";
+    // jsonresponse["status"] = "Durum: Yön Switch Basılı.";
     jsonresponse["status_code"] = "5";
     break;
   case 6:
-    jsonresponse["status"] = "Durum: Robot Şarj Etmiyor.";
+    // jsonresponse["status"] = "Durum: Robot Şarj Etmiyor.";
     jsonresponse["status_code"] = "6";
     break;
   case 7:
-    jsonresponse["status"] = "Durum: Manuel İleri";
+    // jsonresponse["status"] = "Durum: Manuel İleri";
     jsonresponse["status_code"] = "7";
     break;
   case 8:
-    jsonresponse["status"] = "Durum: Manuel Geri";
+    // jsonresponse["status"] = "Durum: Manuel Geri";
     jsonresponse["status_code"] = "8";
     break;
   case 9:
-    jsonresponse["status"] = "Durum: Hata!";
+    // jsonresponse["status"] = "Durum: Hata!";
     jsonresponse["status_code"] = "9";
     break;
   case 10:
-    jsonresponse["status"] = "Durum: Şarj Switchi Takılı";
+    // jsonresponse["status"] = "Durum: Şarj Switchi Takılı";
     jsonresponse["status_code"] = "10";
     break;
   default:
-    jsonresponse["status"] = "HATA";
-    jsonresponse["status_code"] = "-1";
+    // jsonresponse["status"] = "HATA";
+    jsonresponse["status_code"] = "11";
     break;
   }
   serializeJson(jsonresponse, jsonbuffer);
@@ -410,7 +416,7 @@ static esp_err_t cmd_handler(httpd_req_t *req)
 
 static esp_err_t winter_mode_handler(httpd_req_t *req)
 {
-  // Serial.println("winter mode");
+  Serial.println("winter mode");
   char buffer[64] = {
       0,
   };
@@ -431,21 +437,7 @@ static esp_err_t winter_mode_handler(httpd_req_t *req)
   {
     if (httpd_req_get_url_query_str(req, buffer, buf_len) == ESP_OK)
     {
-      if (httpd_query_key_value(buffer, "winter", wintermode_buf, sizeof(buffer)) == ESP_OK)
-      {
-        int w = strtol(wintermode_buf, &remaining, 10);
-        wintermode = w ? 1 : 0;
-        if (wintermode == 0 || wintermode == 1)
-        {
-          node.writeSingleRegister(KIS_MODU_AKTIF, wintermode);
-          Serial.printf("winter mode:%d\n", wintermode);
-        }
-        else // kış modu 1 veya 0 degilse 404 dön ve kaydetme.
-        {
-          httpd_resp_send_404(req);
-          return ESP_FAIL;
-        }
-      }
+
       if (httpd_query_key_value(buffer, "mode1", mode1_buf, sizeof(buffer)) == ESP_OK)
       {
         firstmode = strtol(mode1_buf, &remaining, 10);
@@ -475,7 +467,98 @@ static esp_err_t winter_mode_handler(httpd_req_t *req)
           return ESP_FAIL;
         }
       }
+      if (httpd_query_key_value(buffer, "winter", wintermode_buf, sizeof(buffer)) == ESP_OK)
+      {
+        int w = strtol(wintermode_buf, &remaining, 10);
+        wintermode = w ? 1 : 0;
+        if (wintermode == 0 || wintermode == 1)
+        {
+          node.writeSingleRegister(KIS_MODU_AKTIF, wintermode);
+          Serial.printf("winter mode:%d\n", wintermode);
+        }
+        else // kış modu 1 veya 0 degilse 404 dön ve kaydetme.
+        {
+          httpd_resp_send_404(req);
+          return ESP_FAIL;
+        }
+      }
+      httpd_resp_send(req, "OK", HTTPD_RESP_USE_STRLEN);
+      return ESP_OK;
+    }
+    httpd_resp_send_404(req);
+    return ESP_FAIL;
+  }
+  httpd_resp_send_404(req);
+  return ESP_FAIL;
+}
 
+static esp_err_t sysclock_handler(httpd_req_t *req)
+{
+  char buffer[64] = {
+      0,
+  };
+
+  size_t buf_len;
+  char *remaining;
+  buf_len = httpd_req_get_url_query_len(req) + 1;
+
+  char wintermode_buf[3] = {0};
+  char mode1_buf[3] = {0};
+  char mode2_buf[3] = {0};
+
+  int firstmode = 0;
+  int secondmode = 0;
+  bool wintermode = false;
+
+  if (buf_len > 1)
+  {
+    if (httpd_req_get_url_query_str(req, buffer, buf_len) == ESP_OK)
+    {
+
+      if (httpd_query_key_value(buffer, "hour", mode1_buf, sizeof(buffer)) == ESP_OK)
+      {
+        firstmode = strtol(mode1_buf, &remaining, 10);
+        if (firstmode_l <= firstmode && firstmode <= firstmode_h)
+        {
+          node.writeSingleRegister(SAAT, firstmode);
+          Serial.printf("hour:%d\n", firstmode);
+        }
+        else // firstmode limitleri disinda ise 404 dön
+        {
+          httpd_resp_send_404(req);
+          return ESP_FAIL;
+        }
+      }
+      if (httpd_query_key_value(buffer, "minute", mode2_buf, sizeof(buffer)) == ESP_OK)
+      {
+        secondmode = strtol(mode2_buf, &remaining, 10);
+        if (secondmode_l <= secondmode && secondmode <= secondmode_h)
+        {
+          node.writeSingleRegister(DAKIKA, secondmode);
+          Serial.printf("minute:%d\n", secondmode);
+        }
+
+        else // secondmode limitleri disinda ise
+        {
+          httpd_resp_send_404(req);
+          return ESP_FAIL;
+        }
+      }
+      if (httpd_query_key_value(buffer, "active", wintermode_buf, sizeof(buffer)) == ESP_OK)
+      {
+        int w = strtol(wintermode_buf, &remaining, 10);
+        wintermode = w ? 1 : 0;
+        if (wintermode == 0 || wintermode == 1)
+        {
+          node.writeSingleRegister(CLOCKS_ENABLED, wintermode);
+          Serial.printf("active:%d\n", wintermode);
+        }
+        else // kış modu 1 veya 0 degilse 404 dön ve kaydetme.
+        {
+          httpd_resp_send_404(req);
+          return ESP_FAIL;
+        }
+      }
       httpd_resp_send(req, "OK", HTTPD_RESP_USE_STRLEN);
       return ESP_OK;
     }
@@ -521,9 +604,9 @@ static esp_err_t manual_mode_handler(httpd_req_t *req)
       {
         gecikme = strtol(gecikme_buf, &remaining, 10);
       }
-      Serial.printf("sure:%d ileri_sure:%d gecikme:%d\n", sure, ileri_sure, gecikme);
       if ((sure_l <= sure && sure <= sure_h) && (ileri_sure_l <= ileri_sure && ileri_sure <= ileri_sure_h) && gecikme_l <= gecikme && gecikme <= gecikme_h)
       {
+        Serial.printf("sure:%d ileri_sure:%d gecikme:%d\n", sure, ileri_sure, gecikme);
         node.writeSingleRegister(GERI_SURE, sure);
         node.writeSingleRegister(ILERI_SURE, ileri_sure);
         node.writeSingleRegister(GECIKME, gecikme);
@@ -633,6 +716,35 @@ static esp_err_t winter_mode_read()
   return ESP_OK;
 }
 
+static esp_err_t theme_handler(httpd_req_t *req)
+{
+  Serial.println("theme_handler");
+  char jsonbuffer[20];
+  StaticJsonDocument<100> jsonresponse;
+  jsonresponse["color"] = TEMA;
+  serializeJson(jsonresponse, jsonbuffer);
+  Serial.printf("theme_handler mem :%d", jsonresponse.memoryUsage());
+  return httpd_resp_send(req, jsonbuffer, measureJson(jsonresponse));
+  return ESP_OK;
+}
+
+static esp_err_t sysclock_status_handler(httpd_req_t *req)
+{
+  Serial.println("sysclock_status_handler");
+  char jsonbuffer[200];
+  StaticJsonDocument<100> jsonresponse;
+  int sec = node.getResponseBuffer(node.readHoldingRegisters(SANIYE, 1));
+  int min = node.getResponseBuffer(node.readHoldingRegisters(DAKIKA, 1));
+  int hr = node.getResponseBuffer(node.readHoldingRegisters(SAAT, 1));
+  jsonresponse["sec"] = sec;
+  jsonresponse["min"] = min;
+  jsonresponse["hr"] = hr;
+  Serial.printf("Clock %d-%d-%d\n", hr, min, sec);
+  serializeJson(jsonresponse, jsonbuffer);
+  return httpd_resp_send(req, jsonbuffer, measureJson(jsonresponse));
+  return ESP_OK;
+}
+
 static void readAlarms()
 {
   int result = node.readHoldingRegisters(ALARM_ADDR_BEGIN, 16);
@@ -668,6 +780,23 @@ static void readAlarmStatus()
     Serial.println("Alarm status read error");
   }
   Serial.println("");
+}
+
+static void readClock()
+{
+  int hr = node.getResponseBuffer(node.readHoldingRegisters(SAAT, 1));
+  int min = node.getResponseBuffer(node.readHoldingRegisters(DAKIKA, 1));
+  int sec = node.getResponseBuffer(node.readHoldingRegisters(SANIYE, 1));
+  Serial.printf("Saat %d-%d-%d\n", hr, min, sec);
+}
+
+static esp_err_t redirect_home(httpd_req_t *req, httpd_err_code_t err)
+{
+  httpd_resp_set_status(req, "302 Temporary Redirect");
+  httpd_resp_set_hdr(req, "Location", "/");
+  httpd_resp_send(req, "Redirect to the captive portal", HTTPD_RESP_USE_STRLEN);
+  ESP_LOGI(TAG, "Redirecting to root");
+  return ESP_OK;
 }
 
 esp_err_t startServer(const char *base_path)
@@ -749,6 +878,12 @@ esp_err_t startServer(const char *base_path)
       .handler = winter_mode_handler,
       .user_ctx = NULL};
 
+  httpd_uri_t sysclock_uri = {
+      .uri = "/sysclock",
+      .method = HTTP_POST,
+      .handler = sysclock_handler,
+      .user_ctx = NULL};
+
   httpd_uri_t winter_status_uri = {
       .uri = "/winterstatus",
       .method = HTTP_GET,
@@ -761,11 +896,23 @@ esp_err_t startServer(const char *base_path)
       .handler = temp_status_handler,
       .user_ctx = NULL};
 
+  httpd_uri_t sysclock_status_uri = {
+      .uri = "/sysclock",
+      .method = HTTP_GET,
+      .handler = sysclock_status_handler,
+      .user_ctx = NULL};
+
   httpd_uri_t file_serve = {
       .uri = "/data/*",
       .method = HTTP_GET,
       .handler = download_handler,
       .user_ctx = server_data};
+
+  httpd_uri_t theme_uri = {
+      .uri = "/theme",
+      .method = HTTP_GET,
+      .handler = theme_handler,
+      .user_ctx = NULL};
 
   if (httpd_start(&gubre_siyirma, &config) == ESP_OK)
   {
@@ -781,7 +928,12 @@ esp_err_t startServer(const char *base_path)
     httpd_register_uri_handler(gubre_siyirma, &winter_mode_uri);
     httpd_register_uri_handler(gubre_siyirma, &winter_status_uri);
     httpd_register_uri_handler(gubre_siyirma, &temp_status_uri);
+    httpd_register_uri_handler(gubre_siyirma, &theme_uri);
+    httpd_register_uri_handler(gubre_siyirma, &sysclock_uri);
+    httpd_register_uri_handler(gubre_siyirma, &sysclock_status_uri);
+    httpd_register_err_handler(gubre_siyirma, HTTPD_404_NOT_FOUND, redirect_home);
   }
+
   return ESP_OK;
 }
 
@@ -791,31 +943,11 @@ void WiFiStationConnected(WiFiEvent_t event, WiFiEventInfo_t info)
   Serial.println("Connected to AP successfully!");
 }
 
-// void WiFiGotIP(WiFiEvent_t event, WiFiEventInfo_t info)
-// {
-//   Serial.println("WiFi connected");
-//   Serial.println("IP address: ");
-//   Serial.println(WiFi.localIP());
-// }
-
 void Wifi_AP_Disconnected(WiFiEvent_t event, WiFiEventInfo_t info)
 {
   Serial.println("Disconnected from AP");
   esp_restart();
 }
-
-// void WiFiStationDisconnected(WiFiEvent_t event, WiFiEventInfo_t info)
-// {
-//   Serial.println("Disconnected from WiFi access point");
-//   Serial.print("WiFi lost connection. Reason: ");
-// #ifdef ESP32
-//   Serial.println(info.disconnected.reason);
-// #else
-//   Serial.println(info.wifi_sta_disconnected.reason);
-// #endif
-//   Serial.println("Trying to Reconnect");
-//   WiFi.begin(ssid, password);
-// }
 
 void preTransmission()
 {
@@ -833,16 +965,7 @@ void setup()
 {
   WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0);
 
-  // #ifdef ESP32
-  // WiFi.onEvent(WiFiStationConnected, WiFiEvent_t::SYSTEM_EVENT_STA_DISCONNECTED);
-  // WiFi.onEvent(WiFiGotIP, WiFiEvent_t::SYSTEM_EVENT_GOT_IP6);
-  // WiFi.onEvent(WiFiStationDisconnected, WiFiEvent_t::SYSTEM_EVENT_STA_DISCONNECTED);
   WiFi.onEvent(Wifi_AP_Disconnected, WiFiEvent_t::ARDUINO_EVENT_WIFI_AP_STADISCONNECTED);
-  // #else
-  //   WiFi.onEvent(WiFiStationConnected, WiFiEvent_t::ARDUINO_EVENT_WIFI_STA_DISCONNECTED);
-  //   WiFi.onEvent(WiFiGotIP, WiFiEvent_t::ARDUINO_EVENT_WIFI_STA_GOT_IP);
-  //   WiFi.onEvent(WiFiStationDisconnected, WiFiEvent_t::ARDUINO_EVENT_WIFI_AP_STADISCONNECTED);
-  // #endif
 
   pinMode(MAX485_RE_NEG, OUTPUT);
   pinMode(MAX485_DE, OUTPUT);
@@ -858,29 +981,17 @@ void setup()
   node.begin(2, Serial1);
   node.preTransmission(preTransmission);
   node.postTransmission(postTransmission);
-  // Serial.println("");
+  Serial.println("");
   WiFi.mode(WIFI_AP_STA);
   WiFi.setTxPower(WIFI_POWER_19_5dBm);
   esp_wifi_get_mac(WIFI_IF_STA, mac);
   // sprintf(softap_mac, "%s_%02X%02X", mdns_host, mac[4], mac[5]);
   WiFi.softAP(mdns_host_uppercase, ap_pwd);
-
   // WiFi.begin(ssid, password);
   WiFi.setHostname(mdns_host);
   // delay(100);
   Serial.print("Wifi access point created: http://");
   Serial.println(WiFi.softAPIP());
-
-  // Serial.print("Remote Ready! Go to: http://");
-  // Serial.println(WiFi.softAPIP());
-
-  // while (WiFi.status() != WL_CONNECTED)
-  // {
-  //   delay(100);
-  //   Serial.print(".");
-  // }
-  // Serial.println("");
-  // Serial.println("WiFi connected");
 
   mdns_init();
   mdns_hostname_set(mdns_host);
@@ -890,15 +1001,17 @@ void setup()
   mdns_service_add("GubreSiyirmaWebServer", "_http", "_tcp", 80, NULL, 0);
   readAlarms();
   readAlarmStatus();
+  readClock();
   winter_mode_read();
   mount_storage(base_path);
   nvs_flash_init();
+  dnsServer.start(53, "*", WiFi.softAPIP());
   startServer("");
-  // wait for MAX chip to stabilize
 }
 
 void loop()
 {
+  // dnsServer.processNextRequest();
   int temp = (int)(thermocouple.readCelsius() * 10);
   node.writeSingleRegister(TEMPERATURE, temp);
   Serial.printf("Temperature: %d\n", temp);
