@@ -256,13 +256,24 @@ static esp_err_t temp_status_handler(httpd_req_t *req)
 static esp_err_t status_handler(httpd_req_t *req)
 {
   char jsonbuffer[150];
-  StaticJsonDocument<100> jsonresponse;
-  jsonresponse["amp"] = 1.2;   // (float)node.getResponseBuffer(node.readHoldingRegisters(CURRENT, 1)) / 10.0;
-  jsonresponse["volt"] = 25.8; //(float)node.getResponseBuffer(node.readHoldingRegisters(VOLTAGE, 1)) / 10.0;
-  jsonresponse["sec"] = 45;    // node.getResponseBuffer(node.readHoldingRegisters(SANIYE, 1));
-  jsonresponse["min"] = 36;    // node.getResponseBuffer(node.readHoldingRegisters(DAKIKA, 1));
-  jsonresponse["hr"] = 12;     // node.getResponseBuffer(node.readHoldingRegisters(SAAT, 1));
-  int d = 5;                   // node.getResponseBuffer(node.readHoldingRegisters(DURUM, 1));
+  char hr_buffer[3];
+  char min_buffer[3];
+  char sec_buffer[3];
+
+  StaticJsonDocument<150> jsonresponse;
+  jsonresponse["amp"] = (float)node.getResponseBuffer(node.readHoldingRegisters(CURRENT, 1)) / 10.0;
+  jsonresponse["volt"] = (float)node.getResponseBuffer(node.readHoldingRegisters(VOLTAGE, 1)) / 10.0;
+
+  int sec = node.getResponseBuffer(node.readHoldingRegisters(SANIYE, 1));
+  int min = node.getResponseBuffer(node.readHoldingRegisters(DAKIKA, 1));
+  int hr = node.getResponseBuffer(node.readHoldingRegisters(SAAT, 1));
+  sprintf(sec_buffer, "%02d", sec);
+  sprintf(min_buffer, "%02d", min);
+  sprintf(hr_buffer, "%02d", hr);
+  jsonresponse["sec"] = sec_buffer;
+  jsonresponse["min"] = min_buffer;
+  jsonresponse["hr"] = hr_buffer;
+  int d = node.getResponseBuffer(node.readHoldingRegisters(DURUM, 1));
   switch (d)
   {
   case 0:
@@ -518,13 +529,15 @@ static esp_err_t sysclock_handler(httpd_req_t *req)
       if (httpd_query_key_value(buffer, "hour", mode1_buf, sizeof(buffer)) == ESP_OK)
       {
         firstmode = strtol(mode1_buf, &remaining, 10);
-        if (firstmode_l <= firstmode && firstmode <= firstmode_h)
+        if (0 <= firstmode && firstmode <= 23)
         {
-          node.writeSingleRegister(SAAT, firstmode);
+          node.writeSingleRegister(SAAT_w, firstmode);
           Serial.printf("hour:%d\n", firstmode);
         }
         else // firstmode limitleri disinda ise 404 dön
         {
+          Serial.println("hour limitleri disinda");
+
           httpd_resp_send_404(req);
           return ESP_FAIL;
         }
@@ -532,14 +545,16 @@ static esp_err_t sysclock_handler(httpd_req_t *req)
       if (httpd_query_key_value(buffer, "minute", mode2_buf, sizeof(buffer)) == ESP_OK)
       {
         secondmode = strtol(mode2_buf, &remaining, 10);
-        if (secondmode_l <= secondmode && secondmode <= secondmode_h)
+        if (0 <= secondmode && secondmode <= 59)
         {
-          node.writeSingleRegister(DAKIKA, secondmode);
+          node.writeSingleRegister(DAKIKA_w, secondmode);
           Serial.printf("minute:%d\n", secondmode);
         }
 
         else // secondmode limitleri disinda ise
         {
+          Serial.println("minute limitleri disinda");
+
           httpd_resp_send_404(req);
           return ESP_FAIL;
         }
@@ -562,9 +577,12 @@ static esp_err_t sysclock_handler(httpd_req_t *req)
       httpd_resp_send(req, "OK", HTTPD_RESP_USE_STRLEN);
       return ESP_OK;
     }
+    Serial.println("query");
+
     httpd_resp_send_404(req);
     return ESP_FAIL;
   }
+  Serial.println("buf len");
   httpd_resp_send_404(req);
   return ESP_FAIL;
 }
@@ -604,6 +622,8 @@ static esp_err_t manual_mode_handler(httpd_req_t *req)
       {
         gecikme = strtol(gecikme_buf, &remaining, 10);
       }
+      Serial.printf("sure:%d ileri_sure:%d gecikme:%d\n", sure, ileri_sure, gecikme);
+
       if ((sure_l <= sure && sure <= sure_h) && (ileri_sure_l <= ileri_sure && ileri_sure <= ileri_sure_h) && gecikme_l <= gecikme && gecikme <= gecikme_h)
       {
         Serial.printf("sure:%d ileri_sure:%d gecikme:%d\n", sure, ileri_sure, gecikme);
@@ -615,13 +635,16 @@ static esp_err_t manual_mode_handler(httpd_req_t *req)
       }
       else // rakamlar limitler disinda
       {
+        Serial.println("rakamlar limitler disinda");
         httpd_resp_send_404(req);
         return ESP_FAIL;
       }
     }
+    Serial.println("query");
     httpd_resp_send_404(req);
     return ESP_FAIL;
   }
+  Serial.println("buf len");
   httpd_resp_send_404(req);
   return ESP_FAIL;
 }
@@ -731,15 +754,20 @@ static esp_err_t theme_handler(httpd_req_t *req)
 static esp_err_t sysclock_status_handler(httpd_req_t *req)
 {
   Serial.println("sysclock_status_handler");
-  char jsonbuffer[200];
-  StaticJsonDocument<100> jsonresponse;
+  char jsonbuffer[250];
+  StaticJsonDocument<150> jsonresponse;
+  char hr_buffer[3];
+  char min_buffer[3];
+  char sec_buffer[3];
   int sec = node.getResponseBuffer(node.readHoldingRegisters(SANIYE, 1));
   int min = node.getResponseBuffer(node.readHoldingRegisters(DAKIKA, 1));
   int hr = node.getResponseBuffer(node.readHoldingRegisters(SAAT, 1));
-  jsonresponse["sec"] = sec;
-  jsonresponse["min"] = min;
-  jsonresponse["hr"] = hr;
-  Serial.printf("Clock %d-%d-%d\n", hr, min, sec);
+  jsonresponse["sec"] = sprintf(sec_buffer, "%02d", sec);
+  jsonresponse["min"] = sprintf(min_buffer, "%02d", min);
+  jsonresponse["hr"] = sprintf(hr_buffer, "%02d", hr);
+  Serial.printf("%02d-%02d-%02d", hr, sec, min);
+
+  Serial.printf("Clock %02d-%02d-%02d\n", hr, min, sec);
   serializeJson(jsonresponse, jsonbuffer);
   return httpd_resp_send(req, jsonbuffer, measureJson(jsonresponse));
   return ESP_OK;
@@ -787,7 +815,7 @@ static void readClock()
   int hr = node.getResponseBuffer(node.readHoldingRegisters(SAAT, 1));
   int min = node.getResponseBuffer(node.readHoldingRegisters(DAKIKA, 1));
   int sec = node.getResponseBuffer(node.readHoldingRegisters(SANIYE, 1));
-  Serial.printf("Saat %d-%d-%d\n", hr, min, sec);
+  Serial.printf("Saat %02d-%02d-%02d\n", hr, min, sec);
 }
 
 static esp_err_t redirect_home(httpd_req_t *req, httpd_err_code_t err)
@@ -821,7 +849,7 @@ esp_err_t startServer(const char *base_path)
   Serial.println(server_data->base_path);
 
   config.uri_match_fn = httpd_uri_match_wildcard;
-  config.max_uri_handlers = 16;
+  config.max_uri_handlers = 20;
   config.server_port = 80;
 
   httpd_uri_t index_uri = {

@@ -18,5 +18,5 @@
 #define ileri_sure_l 0
 #define ileri_sure_h 1000
 
-#define gecikme_h 0
-#define gecikme_l 1000
+#define gecikme_l 0
+#define gecikme_h 1000
