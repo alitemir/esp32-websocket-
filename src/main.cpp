@@ -15,8 +15,8 @@
 
 const char *ap_pwd = "12345678";
 const char *hotspot_ssid = "mustafa_ali_can";
-const char *mdns_host = "ican2";
-const char *mdns_host_uppercase = "I-CAN_2";
+const char *mdns_host = "ican1";
+const char *mdns_host_uppercase = "I-CAN1";
 const char *base_path = "/data";
 const char *TAG = "MAIN";
 
@@ -227,7 +227,7 @@ static esp_err_t download_handler(httpd_req_t *req)
 static esp_err_t winter_status_handler(httpd_req_t *req)
 {
   char jsonbuffer[250];
-  StaticJsonDocument<150> jsonresponse;
+  StaticJsonDocument<200> jsonresponse;
   jsonresponse["kismodu"] = node.getResponseBuffer(node.readHoldingRegisters(KIS_MODU_AKTIF, 1));
   jsonresponse["birinci"] = node.getResponseBuffer(node.readHoldingRegisters(BIRINCI_MOD, 1));
   jsonresponse["ikinci"] = node.getResponseBuffer(node.readHoldingRegisters(IKINCI_MOD, 1));
@@ -237,8 +237,10 @@ static esp_err_t winter_status_handler(httpd_req_t *req)
   jsonresponse["hr"] = node.getResponseBuffer(node.readHoldingRegisters(SAAT, 1));
   jsonresponse["min"] = node.getResponseBuffer(node.readHoldingRegisters(DAKIKA, 1));
   jsonresponse["clk_active"] = node.getResponseBuffer(node.readHoldingRegisters(CLOCKS_ENABLED, 1));
-
+  jsonresponse["cr_fwd"] = node.getResponseBuffer(node.readHoldingRegisters(AKIM_ILERI, 1));
+  jsonresponse["cr_back"] = node.getResponseBuffer(node.readHoldingRegisters(AKIM_GERI, 1));
   serializeJson(jsonresponse, jsonbuffer);
+  Serial.printf("winter_status_handler mem:%d\n", jsonresponse.memoryUsage());
   return httpd_resp_send(req, jsonbuffer, measureJson(jsonresponse));
   return ESP_OK;
 }
@@ -253,6 +255,65 @@ static esp_err_t temp_status_handler(httpd_req_t *req)
   return ESP_OK;
 }
 
+static esp_err_t currentctrl_handler(httpd_req_t *req)
+{
+
+  Serial.println("currentctrl_handler");
+  char buffer[64] = {
+      0,
+  };
+
+  size_t buf_len;
+  char *remaining;
+  buf_len = httpd_req_get_url_query_len(req) + 1;
+
+  char wintermode_buf[3] = {0};
+  char mode1_buf[3] = {0};
+  char mode2_buf[3] = {0};
+
+  int firstmode = 0;
+  int secondmode = 0;
+  bool wintermode = false;
+
+  if (buf_len > 1)
+  {
+    if (httpd_req_get_url_query_str(req, buffer, buf_len) == ESP_OK)
+    {
+      if (httpd_query_key_value(buffer, "current_fwd", mode1_buf, sizeof(buffer)) == ESP_OK)
+      {
+        firstmode = strtol(mode1_buf, &remaining, 10);
+        if (current_l <= firstmode && firstmode <= current_h)
+        {
+          node.writeSingleRegister(AKIM_ILERI, firstmode);
+          Serial.printf("current_fwd:%d\n", firstmode);
+        }
+        else // firstmode limitleri disinda ise 404 dön
+        {
+          httpd_resp_send_404(req);
+          return ESP_FAIL;
+        }
+      }
+      if (httpd_query_key_value(buffer, "current_back", mode2_buf, sizeof(buffer)) == ESP_OK)
+      {
+        secondmode = strtol(mode2_buf, &remaining, 10);
+        if (current_l <= secondmode && secondmode <= current_h)
+        {
+          node.writeSingleRegister(AKIM_GERI, secondmode);
+          Serial.printf("current_back:%d\n", secondmode);
+        }
+        else // secondmode limitleri disinda ise
+        {
+          httpd_resp_send_404(req);
+          return ESP_FAIL;
+        }
+      }
+    }
+    httpd_resp_send_404(req);
+    return ESP_FAIL;
+  }
+  httpd_resp_send_404(req);
+  return ESP_FAIL;
+}
 static esp_err_t status_handler(httpd_req_t *req)
 {
   char jsonbuffer[150];
@@ -739,17 +800,17 @@ static esp_err_t winter_mode_read()
   return ESP_OK;
 }
 
-static esp_err_t theme_handler(httpd_req_t *req)
-{
-  Serial.println("theme_handler");
-  char jsonbuffer[20];
-  StaticJsonDocument<100> jsonresponse;
-  jsonresponse["color"] = TEMA;
-  serializeJson(jsonresponse, jsonbuffer);
-  Serial.printf("theme_handler mem :%d", jsonresponse.memoryUsage());
-  return httpd_resp_send(req, jsonbuffer, measureJson(jsonresponse));
-  return ESP_OK;
-}
+// static esp_err_t theme_handler(httpd_req_t *req)
+// {
+//   Serial.println("theme_handler");
+//   char jsonbuffer[20];
+//   StaticJsonDocument<100> jsonresponse;
+//   jsonresponse["color"] = TEMA;
+//   serializeJson(jsonresponse, jsonbuffer);
+//   Serial.printf("theme_handler mem :%d", jsonresponse.memoryUsage());
+//   return httpd_resp_send(req, jsonbuffer, measureJson(jsonresponse));
+//   return ESP_OK;
+// }
 
 static esp_err_t sysclock_status_handler(httpd_req_t *req)
 {
@@ -888,7 +949,7 @@ esp_err_t startServer(const char *base_path)
       .handler = get_times_handler,
       .user_ctx = NULL};
 
-  httpd_uri_t manual_mod_uri = {
+  httpd_uri_t manual_mode_uri = {
       .uri = "/manualmode",
       .method = HTTP_POST,
       .handler = manual_mode_handler,
@@ -910,6 +971,12 @@ esp_err_t startServer(const char *base_path)
       .uri = "/sysclock",
       .method = HTTP_POST,
       .handler = sysclock_handler,
+      .user_ctx = NULL};
+
+  httpd_uri_t currents_uri = {
+      .uri = "/currentctrl",
+      .method = HTTP_POST,
+      .handler = currentctrl_handler,
       .user_ctx = NULL};
 
   httpd_uri_t winter_status_uri = {
@@ -936,11 +1003,11 @@ esp_err_t startServer(const char *base_path)
       .handler = download_handler,
       .user_ctx = server_data};
 
-  httpd_uri_t theme_uri = {
-      .uri = "/theme",
-      .method = HTTP_GET,
-      .handler = theme_handler,
-      .user_ctx = NULL};
+  // httpd_uri_t theme_uri = {
+  //     .uri = "/theme",
+  //     .method = HTTP_GET,
+  //     .handler = theme_handler,
+  //     .user_ctx = NULL};
 
   if (httpd_start(&gubre_siyirma, &config) == ESP_OK)
   {
@@ -952,13 +1019,14 @@ esp_err_t startServer(const char *base_path)
     httpd_register_uri_handler(gubre_siyirma, &ileri_uri);
     httpd_register_uri_handler(gubre_siyirma, &geri_uri);
     httpd_register_uri_handler(gubre_siyirma, &get_times_uri);
-    httpd_register_uri_handler(gubre_siyirma, &manual_mod_uri);
+    httpd_register_uri_handler(gubre_siyirma, &manual_mode_uri);
     httpd_register_uri_handler(gubre_siyirma, &winter_mode_uri);
     httpd_register_uri_handler(gubre_siyirma, &winter_status_uri);
     httpd_register_uri_handler(gubre_siyirma, &temp_status_uri);
-    httpd_register_uri_handler(gubre_siyirma, &theme_uri);
+    // httpd_register_uri_handler(gubre_siyirma, &theme_uri);
     httpd_register_uri_handler(gubre_siyirma, &sysclock_uri);
     httpd_register_uri_handler(gubre_siyirma, &sysclock_status_uri);
+    httpd_register_uri_handler(gubre_siyirma, &currents_uri);
     httpd_register_err_handler(gubre_siyirma, HTTPD_404_NOT_FOUND, redirect_home);
   }
 
@@ -1041,7 +1109,10 @@ void loop()
 {
   // dnsServer.processNextRequest();
   int temp = (int)(thermocouple.readCelsius() * 10);
-  node.writeSingleRegister(TEMPERATURE, temp);
-  Serial.printf("Temperature: %d\n", temp);
+  if (temp != 2147483647) // Sicaklik sensoru bagli degil ise bu deger olculuyor
+  {
+    node.writeSingleRegister(TEMPERATURE, temp);
+    Serial.printf("Temperature: %d\n", temp);
+  }
   delay(500);
 }

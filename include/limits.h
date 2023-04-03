@@ -11,6 +11,10 @@
 #define secondmode_l -100
 #define secondmode_h 100
 
+// Akim Limitleri
+#define current_l 0
+#define current_h 100
+
 // Tur modu gecikmeleri, (sn)
 #define sure_l 0
 #define sure_h 1000

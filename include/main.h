@@ -21,11 +21,16 @@
 #define thermoCLK 18
 
 // Uzaktan kontrol PLC adresleri
-#define FORWARD_ADDRESS 0x8AA
-#define BACKWARD_ADDRESS 0x8AB
+#define FORWARD_ADDRESS 0x8AB
+#define BACKWARD_ADDRESS 0x8AA
 #define RIGHT_ADDRESS 0x8AC
 #define LEFT_ADDRESS 0x8AD
 #define STOP_ADDRESS 0x8AE
+
+// Akim kontrol adresleri
+
+#define AKIM_ILERI 0x11C2
+#define AKIM_GERI 0x11C4
 
 // saat ve dakikaların adresi
 #define ALARM_ADDR_BEGIN 0x1214
