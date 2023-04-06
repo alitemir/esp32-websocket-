@@ -8,7 +8,7 @@
 #include <esp_log.h>
 #include <nvs_flash.h>
 #include <esp_spiffs.h>
-#include <DNSServer.h>
+// #include <DNSServer.h>
 #include "main.h"
 #include <max6675.h>
 #include "limits.h"
@@ -24,7 +24,7 @@ httpd_handle_t gubre_siyirma = NULL;
 ModbusMaster node;
 uint8_t mac[6];
 char softap_mac[18] = {0};
-DNSServer dnsServer;
+// DNSServer dnsServer;
 MAX6675 thermocouple(thermoCLK, thermoCS, thermoSO);
 
 static esp_err_t tur_ileri_handler(httpd_req_t *req)
@@ -105,7 +105,7 @@ static esp_err_t set_content_type_from_file(httpd_req_t *req, const char *filena
   return httpd_resp_set_type(req, "text/plain");
 }
 
-static esp_err_t mount_storage(const char *base_path)
+static esp_err_t mount_storage(const char *base_path)            
 {
   ESP_LOGI(TAG, "Initializing SPIFFS");
 
@@ -216,10 +216,6 @@ static esp_err_t download_handler(httpd_req_t *req)
 
   fclose(fd);
   ESP_LOGI(TAG, "File sending complete");
-
-#ifdef CONFIG_EXAMPLE_HTTPD_CONN_CLOSE_HEADER
-  httpd_resp_set_hdr(req, "Connection", "close");
-#endif
   httpd_resp_send_chunk(req, NULL, 0);
   return ESP_OK;
 }
@@ -314,6 +310,7 @@ static esp_err_t currentctrl_handler(httpd_req_t *req)
   httpd_resp_send_404(req);
   return ESP_FAIL;
 }
+
 static esp_err_t status_handler(httpd_req_t *req)
 {
   char jsonbuffer[150];
@@ -406,15 +403,13 @@ static esp_err_t cmd_handler(httpd_req_t *req)
       }
       else
       {
-        // time parametresi yoksa
-        httpd_resp_send_404(req);
+        httpd_resp_send_404(req); // time parametresi yoksa
         return ESP_FAIL;
       }
     }
     else
     {
-      // go parametresi yoksa
-      httpd_resp_send_404(req);
+      httpd_resp_send_404(req); // go parametresi yoksa
       return ESP_FAIL;
     }
     // parametre yoksa
@@ -474,7 +469,6 @@ static esp_err_t cmd_handler(httpd_req_t *req)
   }
   else
   {
-
     res = -1;
   }
   if (res)
@@ -843,7 +837,6 @@ static void readAlarms()
     {
       int hour = node.getResponseBuffer(j);
       int minute = node.getResponseBuffer(j + 1);
-
       Serial.printf("%02d:%02d\n", hour, minute);
     }
   }
@@ -891,9 +884,7 @@ static esp_err_t redirect_home(httpd_req_t *req, httpd_err_code_t err)
 esp_err_t startServer(const char *base_path)
 {
   httpd_config_t config = HTTPD_DEFAULT_CONFIG();
-
   static struct file_server_data *server_data = NULL;
-
   if (server_data)
   {
     Serial.println("File server already started");
@@ -1101,7 +1092,7 @@ void setup()
   winter_mode_read();
   mount_storage(base_path);
   nvs_flash_init();
-  dnsServer.start(53, "*", WiFi.softAPIP());
+  // dnsServer.start(53, "*", WiFi.softAPIP());
   startServer("");
 }
 
@@ -1109,7 +1100,7 @@ void loop()
 {
   // dnsServer.processNextRequest();
   int temp = (int)(thermocouple.readCelsius() * 10);
-  if (temp != 2147483647) // Sicaklik sensoru bagli degil ise bu deger olculuyor
+  if (temp != 2147483647) // Sicaklik sensoru bagli degil ise bu deger okunuyor
   {
     node.writeSingleRegister(TEMPERATURE, temp);
     Serial.printf("Temperature: %d\n", temp);
