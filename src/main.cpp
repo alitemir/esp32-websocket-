@@ -8,10 +8,9 @@
 #include <esp_log.h>
 #include <nvs_flash.h>
 #include <esp_spiffs.h>
-// #include <DNSServer.h>
-#include "main.h"
 #include <max6675.h>
 #include "limits.h"
+#include "main.h"
 
 const char *ap_pwd = "12345678";
 const char *hotspot_ssid = "mustafa_ali_can";
@@ -24,14 +23,13 @@ httpd_handle_t gubre_siyirma = NULL;
 ModbusMaster node;
 uint8_t mac[6];
 char softap_mac[18] = {0};
-// DNSServer dnsServer;
 MAX6675 thermocouple(thermoCLK, thermoCS, thermoSO);
 
 static esp_err_t tur_ileri_handler(httpd_req_t *req)
 {
   node.writeSingleCoil(EKTUR_ILERI, HIGH);
   delay(250);
-  Serial.println("ileri turn");
+  ESP_LOGI(TAG, "ileri turn");
   node.writeSingleCoil(EKTUR_ILERI, LOW);
   httpd_resp_set_type(req, "text/html");
   return httpd_resp_send(req, "ileri", 5);
@@ -42,7 +40,7 @@ static esp_err_t tur_geri_handler(httpd_req_t *req)
   httpd_resp_set_type(req, "text/html");
   node.writeSingleCoil(EKTUR_GERI, HIGH);
   delay(250);
-  Serial.println("geri turn");
+  ESP_LOGI(TAG, "geri turn");
   node.writeSingleCoil(EKTUR_GERI, LOW);
   return httpd_resp_send(req, "geri", 4);
 }
@@ -105,7 +103,7 @@ static esp_err_t set_content_type_from_file(httpd_req_t *req, const char *filena
   return httpd_resp_set_type(req, "text/plain");
 }
 
-static esp_err_t mount_storage(const char *base_path)            
+static esp_err_t mount_storage(const char *base_path)
 {
   ESP_LOGI(TAG, "Initializing SPIFFS");
 
@@ -166,21 +164,14 @@ static esp_err_t download_handler(httpd_req_t *req)
     httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Filename too long");
     return ESP_FAIL;
   }
-  if (strcmp(&filepath[strlen(filepath) - 4], ".map") == 0 || strcmp(&filepath[strlen(filepath) - 7], ".map.js") == 0)
+  if (strcmp(&filepath[strlen(filepath) - 4], ".map") == 0 || strcmp(&filepath[strlen(filepath) - 7], ".map.js") == 0) // Skip map files
   {
-    // Serial.println("Skip map file");
     return ESP_FAIL;
   }
   else
   {
     String fl = String(filepath) + String(".gz");
-
-    // Serial.println(filepath);
-    // Serial.println(filename);
-    // Serial.println(fl);
-
     fd = fopen(fl.c_str(), "r");
-
     if (!fd)
     {
       ESP_LOGE(TAG, "Failed to read existing file : %s", filepath);
@@ -230,13 +221,13 @@ static esp_err_t winter_status_handler(httpd_req_t *req)
   jsonresponse["ileri"] = node.getResponseBuffer(node.readHoldingRegisters(ILERI_SURE, 1));
   jsonresponse["geri"] = node.getResponseBuffer(node.readHoldingRegisters(GERI_SURE, 1));
   jsonresponse["gecikme"] = node.getResponseBuffer(node.readHoldingRegisters(GECIKME, 1));
-  jsonresponse["hr"] = node.getResponseBuffer(node.readHoldingRegisters(SAAT, 1));
-  jsonresponse["min"] = node.getResponseBuffer(node.readHoldingRegisters(DAKIKA, 1));
+  jsonresponse["hr"] = node.getResponseBuffer(node.readHoldingRegisters(SAAT_READ, 1));
+  jsonresponse["min"] = node.getResponseBuffer(node.readHoldingRegisters(DAKIKA_READ, 1));
   jsonresponse["clk_active"] = node.getResponseBuffer(node.readHoldingRegisters(CLOCKS_ENABLED, 1));
   jsonresponse["cr_fwd"] = node.getResponseBuffer(node.readHoldingRegisters(AKIM_ILERI, 1));
   jsonresponse["cr_back"] = node.getResponseBuffer(node.readHoldingRegisters(AKIM_GERI, 1));
   serializeJson(jsonresponse, jsonbuffer);
-  Serial.printf("winter_status_handler mem:%d\n", jsonresponse.memoryUsage());
+  ESP_LOGI(TAG, "%s mem:%d\n", __func__, jsonresponse.memoryUsage());
   return httpd_resp_send(req, jsonbuffer, measureJson(jsonresponse));
   return ESP_OK;
 }
@@ -247,14 +238,13 @@ static esp_err_t temp_status_handler(httpd_req_t *req)
   StaticJsonDocument<50> jsonresponse;
   jsonresponse["temp"] = thermocouple.readCelsius();
   serializeJson(jsonresponse, jsonbuffer);
+  ESP_LOGI(TAG, "%s mem:%d\n", __func__, jsonresponse.memoryUsage());
   return httpd_resp_send(req, jsonbuffer, measureJson(jsonresponse));
   return ESP_OK;
 }
 
 static esp_err_t currentctrl_handler(httpd_req_t *req)
 {
-
-  Serial.println("currentctrl_handler");
   char buffer[64] = {
       0,
   };
@@ -263,41 +253,39 @@ static esp_err_t currentctrl_handler(httpd_req_t *req)
   char *remaining;
   buf_len = httpd_req_get_url_query_len(req) + 1;
 
-  char wintermode_buf[3] = {0};
-  char mode1_buf[3] = {0};
-  char mode2_buf[3] = {0};
+  char current_fwd_buf[3] = {0};
+  char current_back_buf[3] = {0};
 
-  int firstmode = 0;
-  int secondmode = 0;
-  bool wintermode = false;
+  int current_fwd = 0;
+  int current_back = 0;
 
   if (buf_len > 1)
   {
     if (httpd_req_get_url_query_str(req, buffer, buf_len) == ESP_OK)
     {
-      if (httpd_query_key_value(buffer, "current_fwd", mode1_buf, sizeof(buffer)) == ESP_OK)
+      if (httpd_query_key_value(buffer, "current_fwd", current_fwd_buf, sizeof(buffer)) == ESP_OK)
       {
-        firstmode = strtol(mode1_buf, &remaining, 10);
-        if (current_l <= firstmode && firstmode <= current_h)
+        current_fwd = strtol(current_fwd_buf, &remaining, 10);
+        if (current_l <= current_fwd && current_fwd <= current_h)
         {
-          node.writeSingleRegister(AKIM_ILERI, firstmode);
-          Serial.printf("current_fwd:%d\n", firstmode);
+          node.writeSingleRegister(AKIM_ILERI, current_fwd);
+          Serial.printf("current_fwd:%d\n", current_fwd);
         }
-        else // firstmode limitleri disinda ise 404 dön
+        else // current_fwd limitleri disinda ise 404 dön
         {
           httpd_resp_send_404(req);
           return ESP_FAIL;
         }
       }
-      if (httpd_query_key_value(buffer, "current_back", mode2_buf, sizeof(buffer)) == ESP_OK)
+      if (httpd_query_key_value(buffer, "current_back", current_back_buf, sizeof(buffer)) == ESP_OK)
       {
-        secondmode = strtol(mode2_buf, &remaining, 10);
-        if (current_l <= secondmode && secondmode <= current_h)
+        current_back = strtol(current_back_buf, &remaining, 10);
+        if (current_l <= current_back && current_back <= current_h)
         {
-          node.writeSingleRegister(AKIM_GERI, secondmode);
-          Serial.printf("current_back:%d\n", secondmode);
+          node.writeSingleRegister(AKIM_GERI, current_back);
+          Serial.printf("current_back:%d\n", current_back);
         }
-        else // secondmode limitleri disinda ise
+        else // current_back limitleri disinda ise
         {
           httpd_resp_send_404(req);
           return ESP_FAIL;
@@ -322,9 +310,9 @@ static esp_err_t status_handler(httpd_req_t *req)
   jsonresponse["amp"] = (float)node.getResponseBuffer(node.readHoldingRegisters(CURRENT, 1)) / 10.0;
   jsonresponse["volt"] = (float)node.getResponseBuffer(node.readHoldingRegisters(VOLTAGE, 1)) / 10.0;
 
-  int sec = node.getResponseBuffer(node.readHoldingRegisters(SANIYE, 1));
-  int min = node.getResponseBuffer(node.readHoldingRegisters(DAKIKA, 1));
-  int hr = node.getResponseBuffer(node.readHoldingRegisters(SAAT, 1));
+  int sec = node.getResponseBuffer(node.readHoldingRegisters(SANIYE_READ, 1));
+  int min = node.getResponseBuffer(node.readHoldingRegisters(DAKIKA_READ, 1));
+  int hr = node.getResponseBuffer(node.readHoldingRegisters(SAAT_READ, 1));
   sprintf(sec_buffer, "%02d", sec);
   sprintf(min_buffer, "%02d", min);
   sprintf(hr_buffer, "%02d", hr);
@@ -384,6 +372,7 @@ static esp_err_t status_handler(httpd_req_t *req)
     break;
   }
   serializeJson(jsonresponse, jsonbuffer);
+  ESP_LOGI(TAG, "%s mem:%d\n", __func__, jsonresponse.memoryUsage());
   return httpd_resp_send(req, jsonbuffer, measureJson(jsonresponse));
 }
 
@@ -454,7 +443,7 @@ static esp_err_t cmd_handler(httpd_req_t *req)
   }
   else if (!strcmp(buffer, "ektur"))
   {
-    Serial.println("Ektur");
+    // Serial.println("Ektur");
   }
 
   else if (!strcmp(buffer, "x"))
@@ -482,7 +471,6 @@ static esp_err_t cmd_handler(httpd_req_t *req)
 
 static esp_err_t winter_mode_handler(httpd_req_t *req)
 {
-  Serial.println("winter mode");
   char buffer[64] = {
       0,
   };
@@ -568,60 +556,57 @@ static esp_err_t sysclock_handler(httpd_req_t *req)
   char *remaining;
   buf_len = httpd_req_get_url_query_len(req) + 1;
 
-  char wintermode_buf[3] = {0};
-  char mode1_buf[3] = {0};
-  char mode2_buf[3] = {0};
+  char clock_active_buf[3] = {0};
+  char hour_buf[3] = {0};
+  char minute_buf[3] = {0};
 
-  int firstmode = 0;
-  int secondmode = 0;
-  bool wintermode = false;
+  int hour = 0;
+  int minute = 0;
+  bool clock_active = false;
 
   if (buf_len > 1)
   {
     if (httpd_req_get_url_query_str(req, buffer, buf_len) == ESP_OK)
     {
-
-      if (httpd_query_key_value(buffer, "hour", mode1_buf, sizeof(buffer)) == ESP_OK)
+      if (httpd_query_key_value(buffer, "hour_buf", hour_buf, sizeof(buffer)) == ESP_OK)
       {
-        firstmode = strtol(mode1_buf, &remaining, 10);
-        if (0 <= firstmode && firstmode <= 23)
+        hour = strtol(hour_buf, &remaining, 10);
+        if (0 <= hour && hour <= 23)
         {
-          node.writeSingleRegister(SAAT_w, firstmode);
-          Serial.printf("hour:%d\n", firstmode);
+          node.writeSingleRegister(SAAT_WRITE, hour);
+          Serial.printf("hour_buf:%d\n", hour);
         }
-        else // firstmode limitleri disinda ise 404 dön
+        else // hour limitleri disinda ise 404 dön
         {
-          Serial.println("hour limitleri disinda");
-
+          ESP_LOGE(TAG, "hour_buf limitleri disinda");
           httpd_resp_send_404(req);
           return ESP_FAIL;
         }
       }
-      if (httpd_query_key_value(buffer, "minute", mode2_buf, sizeof(buffer)) == ESP_OK)
+      if (httpd_query_key_value(buffer, "minute_buf", minute_buf, sizeof(buffer)) == ESP_OK)
       {
-        secondmode = strtol(mode2_buf, &remaining, 10);
-        if (0 <= secondmode && secondmode <= 59)
+        minute = strtol(minute_buf, &remaining, 10);
+        if (0 <= minute && minute <= 59)
         {
-          node.writeSingleRegister(DAKIKA_w, secondmode);
-          Serial.printf("minute:%d\n", secondmode);
+          node.writeSingleRegister(DAKIKA_WRITE, minute);
+          Serial.printf("minute_buf:%d\n", minute);
         }
 
-        else // secondmode limitleri disinda ise
+        else // minute limitleri disinda ise
         {
-          Serial.println("minute limitleri disinda");
-
+          ESP_LOGE(TAG, "minute_buf limitleri disinda");
           httpd_resp_send_404(req);
           return ESP_FAIL;
         }
       }
-      if (httpd_query_key_value(buffer, "active", wintermode_buf, sizeof(buffer)) == ESP_OK)
+      if (httpd_query_key_value(buffer, "active", clock_active_buf, sizeof(buffer)) == ESP_OK)
       {
-        int w = strtol(wintermode_buf, &remaining, 10);
-        wintermode = w ? 1 : 0;
-        if (wintermode == 0 || wintermode == 1)
+        int w = strtol(clock_active_buf, &remaining, 10);
+        clock_active = w ? 1 : 0;
+        if (clock_active == 0 || clock_active == 1)
         {
-          node.writeSingleRegister(CLOCKS_ENABLED, wintermode);
-          Serial.printf("active:%d\n", wintermode);
+          node.writeSingleRegister(CLOCKS_ENABLED, clock_active);
+          Serial.printf("active:%d\n", clock_active);
         }
         else // kış modu 1 veya 0 degilse 404 dön ve kaydetme.
         {
@@ -632,19 +617,17 @@ static esp_err_t sysclock_handler(httpd_req_t *req)
       httpd_resp_send(req, "OK", HTTPD_RESP_USE_STRLEN);
       return ESP_OK;
     }
-    Serial.println("query");
+    ESP_LOGE(TAG, "URL query key yok.");
 
     httpd_resp_send_404(req);
     return ESP_FAIL;
   }
-  Serial.println("buf len");
   httpd_resp_send_404(req);
   return ESP_FAIL;
 }
 
 static esp_err_t manual_mode_handler(httpd_req_t *req)
 {
-  Serial.println("manual mode");
   char buffer[64] = {
       0,
   };
@@ -681,7 +664,7 @@ static esp_err_t manual_mode_handler(httpd_req_t *req)
 
       if ((sure_l <= sure && sure <= sure_h) && (ileri_sure_l <= ileri_sure && ileri_sure <= ileri_sure_h) && gecikme_l <= gecikme && gecikme <= gecikme_h)
       {
-        Serial.printf("sure:%d ileri_sure:%d gecikme:%d\n", sure, ileri_sure, gecikme);
+        ESP_LOGI(TAG, "sure:%d ileri_sure:%d gecikme:%d\n", sure, ileri_sure, gecikme);
         node.writeSingleRegister(GERI_SURE, sure);
         node.writeSingleRegister(ILERI_SURE, ileri_sure);
         node.writeSingleRegister(GECIKME, gecikme);
@@ -690,24 +673,21 @@ static esp_err_t manual_mode_handler(httpd_req_t *req)
       }
       else // rakamlar limitler disinda
       {
-        Serial.println("rakamlar limitler disinda");
+        ESP_LOGE(TAG, "Rakamlar limitler disinda");
         httpd_resp_send_404(req);
         return ESP_FAIL;
       }
     }
-    Serial.println("query");
+    ESP_LOGE(TAG, "URL query key yok.");
     httpd_resp_send_404(req);
     return ESP_FAIL;
   }
-  Serial.println("buf len");
   httpd_resp_send_404(req);
   return ESP_FAIL;
 }
 
 static esp_err_t save_handler(httpd_req_t *req)
 {
-  Serial.println("save_handler");
-
   int t1 = millis();
   char buffer[90];
   size_t buf_len;
@@ -748,14 +728,13 @@ static esp_err_t save_handler(httpd_req_t *req)
     }
   }
   int t2 = millis();
-  printf("Alarms saved in %d ms\n", t2 - t1);
+  ESP_LOGI(TAG, "Alarms saved in %d ms\n", t2 - t1);
   return ESP_OK;
 }
 
 static esp_err_t get_times_handler(httpd_req_t *req)
 {
   char jsonbuffer[100];
-  Serial.println("get_times_handler");
   StaticJsonDocument<280> jsonresponse;
   char buffer[8];
   int result = node.readHoldingRegisters(ALARM_ADDR_BEGIN, 16);
@@ -773,15 +752,15 @@ static esp_err_t get_times_handler(httpd_req_t *req)
   }
   else
   {
-    Serial.println("Alarm read error");
+    ESP_LOGE(TAG, "Alarm read error");
   }
   serializeJson(jsonresponse, jsonbuffer);
+  ESP_LOGI(TAG, "%s mem:%d\n", __func__, jsonresponse.memoryUsage());
   return httpd_resp_send(req, jsonbuffer, measureJson(jsonresponse));
 }
 
 static esp_err_t winter_mode_read()
 {
-  Serial.println("winter mode handler");
   int ileri_sure = node.getResponseBuffer(node.readHoldingRegisters(ILERI_SURE, 1));
   int geri_sure = node.getResponseBuffer(node.readHoldingRegisters(GERI_SURE, 1));
   int gecikme = node.getResponseBuffer(node.readHoldingRegisters(GECIKME, 1));
@@ -789,8 +768,8 @@ static esp_err_t winter_mode_read()
   int birinci_mod = node.getResponseBuffer(node.readHoldingRegisters(BIRINCI_MOD, 1));
   int ikinci_mod = node.getResponseBuffer(node.readHoldingRegisters(IKINCI_MOD, 1));
 
-  Serial.printf("ileri:%d geri:%d gecikme:%d kis:%d 1.:%d 2.:%d\n", ileri_sure, geri_sure,
-                gecikme, kis_modu_aktif, birinci_mod, ikinci_mod);
+  ESP_LOGI(TAG, "ileri:%d geri:%d gecikme:%d kis:%d 1.:%d 2.:%d\n", ileri_sure, geri_sure,
+           gecikme, kis_modu_aktif, birinci_mod, ikinci_mod);
   return ESP_OK;
 }
 
@@ -808,22 +787,21 @@ static esp_err_t winter_mode_read()
 
 static esp_err_t sysclock_status_handler(httpd_req_t *req)
 {
-  Serial.println("sysclock_status_handler");
   char jsonbuffer[250];
   StaticJsonDocument<150> jsonresponse;
   char hr_buffer[3];
   char min_buffer[3];
   char sec_buffer[3];
-  int sec = node.getResponseBuffer(node.readHoldingRegisters(SANIYE, 1));
-  int min = node.getResponseBuffer(node.readHoldingRegisters(DAKIKA, 1));
-  int hr = node.getResponseBuffer(node.readHoldingRegisters(SAAT, 1));
+  int sec = node.getResponseBuffer(node.readHoldingRegisters(SANIYE_READ, 1));
+  int min = node.getResponseBuffer(node.readHoldingRegisters(DAKIKA_READ, 1));
+  int hr = node.getResponseBuffer(node.readHoldingRegisters(SAAT_READ, 1));
   jsonresponse["sec"] = sprintf(sec_buffer, "%02d", sec);
   jsonresponse["min"] = sprintf(min_buffer, "%02d", min);
   jsonresponse["hr"] = sprintf(hr_buffer, "%02d", hr);
   Serial.printf("%02d-%02d-%02d", hr, sec, min);
-
   Serial.printf("Clock %02d-%02d-%02d\n", hr, min, sec);
   serializeJson(jsonresponse, jsonbuffer);
+  ESP_LOGI(TAG, "%s mem:%d\n", __func__, jsonresponse.memoryUsage());
   return httpd_resp_send(req, jsonbuffer, measureJson(jsonresponse));
   return ESP_OK;
 }
@@ -842,7 +820,7 @@ static void readAlarms()
   }
   else
   {
-    Serial.println("Alarm read error");
+    ESP_LOGE(TAG, "Alarm read error");
   }
 }
 
@@ -859,17 +837,16 @@ static void readAlarmStatus()
   }
   else
   {
-    Serial.println("Alarm status read error");
+    ESP_LOGE(TAG, "Alarm status read error");
   }
-  Serial.println("");
 }
 
 static void readClock()
 {
-  int hr = node.getResponseBuffer(node.readHoldingRegisters(SAAT, 1));
-  int min = node.getResponseBuffer(node.readHoldingRegisters(DAKIKA, 1));
-  int sec = node.getResponseBuffer(node.readHoldingRegisters(SANIYE, 1));
-  Serial.printf("Saat %02d-%02d-%02d\n", hr, min, sec);
+  int hr = node.getResponseBuffer(node.readHoldingRegisters(SAAT_READ, 1));
+  int min = node.getResponseBuffer(node.readHoldingRegisters(DAKIKA_READ, 1));
+  int sec = node.getResponseBuffer(node.readHoldingRegisters(SANIYE_READ, 1));
+  ESP_LOGI(TAG, "Saat %02d-%02d-%02d\n", hr, min, sec);
 }
 
 static esp_err_t redirect_home(httpd_req_t *req, httpd_err_code_t err)
@@ -1065,6 +1042,7 @@ void setup()
   // ss.begin(115200);
 
   Serial.setDebugOutput(true);
+  esp_log_level_set("*", ESP_LOG_ERROR);
   node.begin(2, Serial1);
   node.preTransmission(preTransmission);
   node.postTransmission(postTransmission);
@@ -1092,13 +1070,11 @@ void setup()
   winter_mode_read();
   mount_storage(base_path);
   nvs_flash_init();
-  // dnsServer.start(53, "*", WiFi.softAPIP());
   startServer("");
 }
 
 void loop()
 {
-  // dnsServer.processNextRequest();
   int temp = (int)(thermocouple.readCelsius() * 10);
   if (temp != 2147483647) // Sicaklik sensoru bagli degil ise bu deger okunuyor
   {

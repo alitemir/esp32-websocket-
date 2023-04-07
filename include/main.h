@@ -65,13 +65,13 @@
 
 // Saat Verileri Okuma Adresleri
 #define CLOCKS_ENABLED 0x112C
-#define SANIYE 0x1521
-#define DAKIKA 0x1522
-#define SAAT 0x1523
+#define SANIYE_READ 0x1521
+#define DAKIKA_READ 0x1522
+#define SAAT_READ 0x1523
 
 // Saat Verileri Yazma adresler
-#define DAKIKA_w 0x1065
-#define SAAT_w 0x1064
+#define DAKIKA_WRITE 0x1065
+#define SAAT_WRITE 0x1064
 
 #define FILE_PATH_MAX (ESP_VFS_PATH_MAX + CONFIG_SPIFFS_OBJ_NAME_LEN)
 #define SCRATCH_BUFSIZE 4096
