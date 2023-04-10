@@ -18,6 +18,8 @@ const char *mdns_host = "ican1";
 const char *mdns_host_uppercase = "I-CAN1";
 const char *base_path = "/data";
 const char *TAG = "MAIN";
+long last_fwd_time = 0;
+long last_bk_time = 0;
 
 httpd_handle_t gubre_siyirma = NULL;
 ModbusMaster node;
@@ -414,8 +416,17 @@ static esp_err_t cmd_handler(httpd_req_t *req)
   if (!strcmp(buffer, "forward"))
   {
     // Serial.println("Forward");
-    node.writeSingleCoil(FORWARD_ADDRESS, HIGH);
-    digitalWrite(LED_PIN, 1);
+    int f_diff = millis() - last_bk_time;
+    if (f_diff > 5000)
+    {
+      last_fwd_time = millis();
+      digitalWrite(LED_PIN, 1);
+      node.writeSingleCoil(FORWARD_ADDRESS, HIGH);
+    }
+    else
+    {
+      ESP_LOGE(TAG, "bk <5000 %d", f_diff);
+    }
   }
   else if (!strcmp(buffer, "left"))
   {
@@ -432,8 +443,17 @@ static esp_err_t cmd_handler(httpd_req_t *req)
   else if (!strcmp(buffer, "backward"))
   {
     // Serial.println("Backward");
-    node.writeSingleCoil(BACKWARD_ADDRESS, HIGH);
-    digitalWrite(LED_PIN, 1);
+    int bk_diff = millis() - last_fwd_time;
+    if (bk_diff > 5000)
+    {
+      last_bk_time = millis();
+      node.writeSingleCoil(BACKWARD_ADDRESS, HIGH);
+      digitalWrite(LED_PIN, 1);
+    }
+    else
+    {
+      ESP_LOGE(TAG, "fwd < 5000 %d", bk_diff);
+    }
   }
   else if (!strcmp(buffer, "stop"))
   {
@@ -455,6 +475,7 @@ static esp_err_t cmd_handler(httpd_req_t *req)
     node.writeSingleCoil(STOP_ADDRESS, LOW);
     digitalWrite(LED_PIN, 0);
     // Serial.println("x");
+    // ESP_LOGE(TAG, "fwd:%d bk:%d", last_fwd_time, last_bk_time);
   }
   else
   {
@@ -568,7 +589,7 @@ static esp_err_t sysclock_handler(httpd_req_t *req)
   {
     if (httpd_req_get_url_query_str(req, buffer, buf_len) == ESP_OK)
     {
-      if (httpd_query_key_value(buffer, "hour_buf", hour_buf, sizeof(buffer)) == ESP_OK)
+      if (httpd_query_key_value(buffer, "hour", hour_buf, sizeof(buffer)) == ESP_OK)
       {
         hour = strtol(hour_buf, &remaining, 10);
         if (0 <= hour && hour <= 23)
@@ -583,7 +604,7 @@ static esp_err_t sysclock_handler(httpd_req_t *req)
           return ESP_FAIL;
         }
       }
-      if (httpd_query_key_value(buffer, "minute_buf", minute_buf, sizeof(buffer)) == ESP_OK)
+      if (httpd_query_key_value(buffer, "minute", minute_buf, sizeof(buffer)) == ESP_OK)
       {
         minute = strtol(minute_buf, &remaining, 10);
         if (0 <= minute && minute <= 59)
