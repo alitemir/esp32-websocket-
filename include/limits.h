@@ -13,7 +13,11 @@
 
 // Akim Limitleri
 #define current_l 0
-#define current_h 100
+#define current_h 50000
+
+// Gerilim limitleri
+#define voltage_l 0
+#define voltage_h 50000
 
 // Tur modu gecikmeleri, (sn)
 #define sure_l 0
@@ -24,3 +28,6 @@
 
 #define gecikme_l 0
 #define gecikme_h 1000
+
+#define surekalb_l 0
+#define surekalb_h 120
