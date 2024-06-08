@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 #include "main.h"
 #include "limits.h"
 #include <ArduinoJson.h>
@@ -1906,10 +1907,66 @@ ali:
   }
   socketIO.begin(socketUrl, socketPort);
   socketIO.onEvent(webSocketEvent);
+=======
+#include <WiFi.h>
+#include <WiFiClient.h>
+#include <WiFiAP.h>
+
+const char *ssid = "I-yap1";
+const char *password = "12345678";
+const char *serverIP = "192.168.4.1"; // AP'nin IP adres   // Bağlanan ESP32 IP adresi
+
+WiFiClient client;
+
+const int numSamples = 20;  // Son 20 değeri saklayacak dizi boyutu
+int rssiValues[numSamples]; // RSSI değerlerini saklamak için dizi
+int currentIndex = 0;       // Dizideki mevcut indeks
+bool arrayFilled = false;   // Dizinin tamamen dolup dolmadığını izlemek için
+
+// Dizideki tüm RSSI değerlerini yazdıran fonksiyon
+void printRSSIValues()
+{
+  int count = arrayFilled ? numSamples : currentIndex;
+  Serial.print("RSSI Değerleri: ");
+  for (int i = 0; i < count; i++)
+  {
+    Serial.print(rssiValues[i]);
+    if (i < count - 1)
+    {
+      Serial.print(", ");
+    }
+  }
+  Serial.println();
+}
+
+// RSSI değerinin ortalamasını hesaplayan fonksiyon
+float getAverageRSSI()
+{
+  int sum = 0;
+  int count = arrayFilled ? numSamples : currentIndex;
+  for (int i = 0; i < count; i++)
+  {
+    sum += rssiValues[i];
+  }
+  return sum / (float)count;
+}
+
+void setup()
+{
+  Serial.begin(9600);
+  WiFi.begin(ssid, password);
+  while (WiFi.status() != WL_CONNECTED)
+  {
+    delay(1000);
+    Serial.println("Bağlanılamıyor...");
+  }
+  Serial.println("Bağlandı!");
+>>>>>>> 76cd792 (Initial commit)
 }
 
 void loop()
 {
+<<<<<<< HEAD
   int bagliIstemciSayisi = WiFi.softAPgetStationNum();
   if (say < 5)
   {
@@ -1952,4 +2009,45 @@ void webSocketEvent(WStype_t type, uint8_t *payload, size_t length)
     break;
   }
   }
+=======
+  if (WiFi.status() == WL_CONNECTED)
+  {
+    // Yeni RSSI değerini al
+    int rssi = WiFi.RSSI();
+    Serial.print("RSSI Değeri: ");
+    Serial.println(rssi);
+
+    // Yeni RSSI değerini diziye ekle
+    rssiValues[currentIndex] = rssi;
+    currentIndex++;
+    if (currentIndex >= numSamples)
+    {
+      currentIndex = 0;
+      arrayFilled = true;
+    }
+    // RSSI değerlerini yazdır
+    // printRSSIValues();
+    // Ortalama RSSI değerini hesapla
+    float averageRSSI = getAverageRSSI();
+
+    // Sonucu seri porta yazdır
+    Serial.print("Ortalama RSSI: ");
+    Serial.println(averageRSSI);
+
+    if (client.connect(serverIP, 81))
+    { // Bağlı ESP32'ye bağlan
+      double y = map(averageRSSI, -8, -24, 0, 200);
+      Serial.println("Server'a bağlanıldı");
+      client.print("mesafe: ");
+      client.println(y); // RSSI değerini gönder
+      client.stop();     // Bağlantıyı kapat
+    }
+    else
+    {
+      Serial.println("Server'a bağlanılamadı");
+      esp_restart();
+    }
+  }
+  delay(5000);
+>>>>>>> 76cd792 (Initial commit)
 }
